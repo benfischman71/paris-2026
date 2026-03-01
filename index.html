@@ -225,6 +225,18 @@ const CC = {
 };
 
 // ===== MAIN APP =====
+const S = {
+  wrap:{fontFamily:"'Cormorant Garamond','Georgia',serif",background:"#0d0d0d",color:"#e8e0d4",minHeight:"100vh"},
+  ib:{background:"#111",border:"1px solid #1a1a1a",borderRadius:10,padding:14},
+  fl:{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:4},
+};
+const Btn = ({c="",children,...p}) => <button {...p} style={{display:"inline-flex",alignItems:"center",gap:5,padding:"6px 14px",borderRadius:20,border:`1px solid ${c==="gold"?"#F2CC8F":c==="coral"?"#E07A5F":c==="green"?"#81B29A":c==="blue"?"#7B8CDE":"#333"}`,background:c==="gold"?"#F2CC8F":c==="coral"?"#E07A5F":c==="green"?"#81B29A":c==="blue"?"#7B8CDE":"transparent",color:c&&c!=="none"?(c==="coral"?"#fff":"#0d0d0d"):"#e8e0d4",cursor:"pointer",fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:500,transition:"all 0.2s",letterSpacing:"0.3px",whiteSpace:"nowrap",...(p.style||{})}}>{children}</button>;
+const Tag = ({color,children}) => <span style={{display:"inline-block",padding:"2px 8px",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.8px",background:`${color}22`,color}}>{children}</span>;
+const Input = (props) => <input {...props} style={{background:"#111",border:"1px solid #282828",color:"#e8e0d4",padding:"8px 12px",borderRadius:8,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",width:"100%",...(props.style||{})}} />;
+const TextArea = (props) => <textarea {...props} style={{background:"#111",border:"1px solid #282828",color:"#e8e0d4",padding:"8px 12px",borderRadius:8,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",width:"100%",resize:"vertical",minHeight:38,...(props.style||{})}} />;
+const Select = (props) => <select {...props} style={{background:"#111",border:"1px solid #282828",color:"#e8e0d4",padding:"8px 12px",borderRadius:8,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",...(props.style||{})}} />;
+const Modal = ({children, onClose}) => (<div onClick={onClose} className="modal-bg"><div onClick={e=>e.stopPropagation()} className="modal-inner">{children}</div></div>);
+
 function App() {
   const [page, setPage] = useState("trip");
   const [cal, setCal] = useState({});
@@ -466,18 +478,6 @@ function App() {
   const [,forceRender] = useState(0);
   useEffect(() => { const t=setInterval(()=>forceRender(n=>n+1),10000); return ()=>clearInterval(t); }, []);
 
-  // ===== SHARED COMPONENTS =====
-  const S = {
-    wrap:{fontFamily:"'Cormorant Garamond','Georgia',serif",background:"#0d0d0d",color:"#e8e0d4",minHeight:"100vh"},
-    ib:{background:"#111",border:"1px solid #1a1a1a",borderRadius:10,padding:14},
-    fl:{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:4},
-  };
-  const Btn = ({c="",children,...p}) => <button {...p} style={{display:"inline-flex",alignItems:"center",gap:5,padding:"6px 14px",borderRadius:20,border:`1px solid ${c==="gold"?"#F2CC8F":c==="coral"?"#E07A5F":c==="green"?"#81B29A":c==="blue"?"#7B8CDE":"#333"}`,background:c==="gold"?"#F2CC8F":c==="coral"?"#E07A5F":c==="green"?"#81B29A":c==="blue"?"#7B8CDE":"transparent",color:c&&c!=="none"?(c==="coral"?"#fff":"#0d0d0d"):"#e8e0d4",cursor:"pointer",fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:500,transition:"all 0.2s",letterSpacing:"0.3px",whiteSpace:"nowrap",...(p.style||{})}}>{children}</button>;
-  const Tag = ({color,children}) => <span style={{display:"inline-block",padding:"2px 8px",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.8px",background:`${color}22`,color}}>{children}</span>;
-  const Input = (props) => <input {...props} style={{background:"#111",border:"1px solid #282828",color:"#e8e0d4",padding:"8px 12px",borderRadius:8,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",width:"100%",...(props.style||{})}} />;
-  const TextArea = (props) => <textarea {...props} style={{background:"#111",border:"1px solid #282828",color:"#e8e0d4",padding:"8px 12px",borderRadius:8,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",width:"100%",resize:"vertical",minHeight:38,...(props.style||{})}} />;
-  const Select = (props) => <select {...props} style={{background:"#111",border:"1px solid #282828",color:"#e8e0d4",padding:"8px 12px",borderRadius:8,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",...(props.style||{})}} />;
-  const Modal = ({children, onClose}) => (<div onClick={onClose} className="modal-bg"><div onClick={e=>e.stopPropagation()} className="modal-inner">{children}</div></div>);
 
   const renderCards = (items, cat) => (
     <div className="grid-cards">
