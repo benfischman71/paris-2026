@@ -247,6 +247,9 @@ function App() {
   const [restF, setRestF] = useState({name:"",meal:"lunch"});
   const [editId, setEditId] = useState(null);
   const [editD, setEditD] = useState({});
+  const [votes, setVotes] = useState({});
+  const [me, setMe] = useState(localStorage.getItem("paris_me")||"");
+  const [showWho, setShowWho] = useState(false);
 
   // ===== SUPABASE STATE =====
   const [sbUrl, setSbUrl] = useState(localStorage.getItem("paris_sb_url")||"");
@@ -295,6 +298,7 @@ function App() {
         if (d.misc) setMisc(d.misc);
         if (d.restaurants) setRestaurants(d.restaurants);
         if (d.cal) setCal(d.cal);
+        if (d.votes) setVotes(d.votes);
         lastFetch.current.act = actRow.updated_at;
       }
       setConnected(true);
@@ -333,6 +337,7 @@ function App() {
           if (d.misc) setMisc(d.misc);
           if (d.restaurants) setRestaurants(d.restaurants);
           if (d.cal) setCal(d.cal);
+          if (d.votes) setVotes(d.votes);
           lastFetch.current.act = row.updated_at;
           changed = true;
         }
@@ -349,7 +354,7 @@ function App() {
       try {
         const [ok1, ok2] = await Promise.all([
           db.current.set("trip_details", { travelers, flights, hotel, transport }),
-          db.current.set("activities", { museums, wwii, misc, restaurants, cal }),
+          db.current.set("activities", { museums, wwii, misc, restaurants, cal, votes }),
         ]);
         if (ok1) { const r = await db.current.getUpdatedAt("trip_details"); if(r) lastFetch.current.trip = r; }
         if (ok2) { const r = await db.current.getUpdatedAt("activities"); if(r) lastFetch.current.act = r; }
@@ -357,7 +362,7 @@ function App() {
       } catch(e) { console.log("Save error:", e); }
     }, 800);
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
-  }, [travelers, flights, hotel, transport, museums, wwii, misc, restaurants, cal]);
+  }, [travelers, flights, hotel, transport, museums, wwii, misc, restaurants, cal, votes]);
 
   const handleConnect = async () => {
     if (!setupUrl.trim() || !setupKey.trim()) { setSetupErr("Both fields required"); return; }
@@ -376,7 +381,7 @@ function App() {
       const existing = await client.get("trip_details");
       if (!existing) {
         await client.set("trip_details", { travelers:D_TRAVELERS, flights:D_FLIGHTS, hotel:{name:"",address:"",phone:"",conf:"",notes:""}, transport:[{id:"tr1",label:"Airport → Hotel (Arrival)",details:"",notes:""},{id:"tr2",label:"Hotel → Airport (Departure)",details:"",notes:""}] });
-        await client.set("activities", { museums:D_MUSEUMS, wwii:D_WWII, misc:D_MISC, restaurants:D_RESTAURANTS, cal:{} });
+        await client.set("activities", { museums:D_MUSEUMS, wwii:D_WWII, misc:D_MISC, restaurants:D_RESTAURANTS, cal:{}, votes:{} });
       }
       await loadFromDB();
       setShowSetup(false);
@@ -393,11 +398,11 @@ function App() {
     if (!window.confirm("Reset ALL trip data to defaults? This cannot be undone.")) return;
     if (db.current) {
       await db.current.set("trip_details", { travelers:D_TRAVELERS, flights:D_FLIGHTS, hotel:{name:"",address:"",phone:"",conf:"",notes:""}, transport:[{id:"tr1",label:"Airport → Hotel (Arrival)",details:"",notes:""},{id:"tr2",label:"Hotel → Airport (Departure)",details:"",notes:""}] });
-      await db.current.set("activities", { museums:D_MUSEUMS, wwii:D_WWII, misc:D_MISC, restaurants:D_RESTAURANTS, cal:{} });
+      await db.current.set("activities", { museums:D_MUSEUMS, wwii:D_WWII, misc:D_MISC, restaurants:D_RESTAURANTS, cal:{}, votes:{} });
     }
     setTravelers(D_TRAVELERS); setFlights(D_FLIGHTS); setHotel({name:"",address:"",phone:"",conf:"",notes:""});
     setTransport([{id:"tr1",label:"Airport → Hotel (Arrival)",details:"",notes:""},{id:"tr2",label:"Hotel → Airport (Departure)",details:"",notes:""}]);
-    setMuseums(D_MUSEUMS); setWwii(D_WWII); setMisc(D_MISC); setRestaurants(D_RESTAURANTS); setCal({});
+    setMuseums(D_MUSEUMS); setWwii(D_WWII); setMisc(D_MISC); setRestaurants(D_RESTAURANTS); setCal({}); setVotes({});
   };
 
   // ===== LOGIC =====
@@ -445,6 +450,18 @@ function App() {
   const fmtDur = (d) => d>=60?`${Math.floor(d/60)}h${d%60?` ${d%60}m`:""}`:d+"min";
   const updFlight = (fid,field,val) => setFlights(p=>p.map(f=>f.id===fid?{...f,[field]:val}:f));
   const updTrans = (tid,field,val) => setTransport(p=>p.map(t=>t.id===tid?{...t,[field]:val}:t));
+
+  // ===== VOTING =====
+  const toggleVote = (itemId) => {
+    if (!me) { setShowWho(true); return; }
+    setVotes(p => {
+      const cur = p[itemId] || [];
+      return { ...p, [itemId]: cur.includes(me) ? cur.filter(n=>n!==me) : [...cur, me] };
+    });
+  };
+  const getVotes = (itemId) => votes[itemId] || [];
+  const myVote = (itemId) => me && (votes[itemId] || []).includes(me);
+  const pickMe = (name) => { setMe(name); localStorage.setItem("paris_me", name); setShowWho(false); };
   const fmtSync = () => { if(!lastSync) return null; const s=Math.floor((Date.now()-lastSync.getTime())/1000); return s<5?"Synced ✓":s<60?`Synced ${s}s ago`:`Synced ${Math.floor(s/60)}m ago`; };
   const [,forceRender] = useState(0);
   useEffect(() => { const t=setInterval(()=>forceRender(n=>n+1),10000); return ()=>clearInterval(t); }, []);
@@ -476,9 +493,15 @@ function App() {
             {item.hours && <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#777",marginBottom:2}}>{item.hours}</p>}
             {item.closed && item.closed!=="None" && <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#E07A5F"}}>Closed: {item.closed}</p>}
             {item.desc && <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#888",marginTop:4,lineHeight:1.5,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{item.desc}</p>}
+            {getVotes(item.id).length>0 && <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#F2CC8F",marginTop:6,display:"flex",flexWrap:"wrap",gap:4,alignItems:"center"}}>
+              <span style={{opacity:0.7}}>🙋</span> {getVotes(item.id).join(", ")}
+            </div>}
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:10}}>
               <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#555"}}>~{fmtDur(item.duration||60)}</span>
               <div className="card-actions">
+                <Btn style={{fontSize:10,background:myVote(item.id)?"#F2CC8F22":"transparent",borderColor:myVote(item.id)?"#F2CC8F":"#333",color:myVote(item.id)?"#F2CC8F":"#e8e0d4"}} onClick={e=>{e.stopPropagation();toggleVote(item.id);}}>
+                  {myVote(item.id)?"★":"☆"} {getVotes(item.id).length||""}
+                </Btn>
                 {sc ? <Btn style={{fontSize:10,background:"#1a1a1a",borderColor:"#81B29A",color:"#81B29A",cursor:"default"}} onClick={e=>e.stopPropagation()}>✓ {si}</Btn>
                   : <Btn style={{fontSize:10}} onClick={e=>{e.stopPropagation();setSched({...item,category:cat});}}>+ Schedule</Btn>}
                 <Btn style={{fontSize:10,color:"#E07A5F",borderColor:"#E07A5F33"}} onClick={e=>{e.stopPropagation();if(window.confirm(`Remove "${item.name}"?`))rmItem(item.id,cat);}}>✕</Btn>
@@ -507,8 +530,11 @@ function App() {
           <span onClick={()=>{setShowSetup(true);setSetupUrl(sbUrl);setSetupKey(sbKey);setSetupErr("");}} style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:connected?"#81B29A":"#E07A5F",cursor:"pointer",padding:"4px 8px",borderRadius:10,border:`1px solid ${connected?"#81B29A33":"#E07A5F33"}`}}>
             {connected?"☁ Cloud":"⚙ Local"}
           </span>
+          <span onClick={()=>setShowWho(true)} style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:me?"#F2CC8F":"#E07A5F",cursor:"pointer",padding:"4px 8px",borderRadius:10,border:`1px solid ${me?"#F2CC8F33":"#E07A5F33"}`}}>
+            {me?`👤 ${me}`:"👤 Who?"}
+          </span>
           {ec>0 && <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#81B29A"}}>{ec} sched</span>}
-          {[{k:"trip",l:"Trip Details",i:"✈"},{k:"content",l:"Explore",i:"◈"},{k:"calendar",l:"Calendar",i:"▦"}].map(n=>
+          {[{k:"trip",l:"Trip Details",i:"✈"},{k:"content",l:"Explore",i:"◈"},{k:"wishlist",l:"Wishlist",i:"★"},{k:"calendar",l:"Calendar",i:"▦"}].map(n=>
             <Btn key={n.k} c={page===n.k?"gold":""} onClick={()=>setPage(n.k)}>{n.i} <span className="nav-label">{n.l}</span></Btn>
           )}
           <Btn c="coral" onClick={()=>{setGroupOpen(true);setGroupResult(null);}}>✦ <span className="nav-label">Smart Group</span></Btn>
@@ -679,7 +705,13 @@ function App() {
                           {r.desc && <p style={{color:"#777",marginTop:4,lineHeight:1.5,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{r.desc}</p>}
                         </div>
                       )}
+                      {getVotes(r.id).length>0 && <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#F2CC8F",marginTop:4,display:"flex",flexWrap:"wrap",gap:4,alignItems:"center"}}>
+                        <span style={{opacity:0.7}}>🙋</span> {getVotes(r.id).join(", ")}
+                      </div>}
                       <div className="card-actions" style={{marginTop:10}}>
+                        <Btn style={{fontSize:10,background:myVote(r.id)?"#F2CC8F22":"transparent",borderColor:myVote(r.id)?"#F2CC8F":"#333",color:myVote(r.id)?"#F2CC8F":"#e8e0d4"}} onClick={e=>{e.stopPropagation();toggleVote(r.id);}}>
+                          {myVote(r.id)?"★":"☆"} {getVotes(r.id).length||""}
+                        </Btn>
                         {!isEd && <Btn style={{fontSize:10}} onClick={e=>{e.stopPropagation();setEditId(r.id);setEditD({area:r.area,phone:r.phone,hours:r.hours});}}>✎ Edit</Btn>}
                         {sc ? <Btn style={{fontSize:10,background:"#1a1a1a",borderColor:"#81B29A",color:"#81B29A"}} onClick={e=>e.stopPropagation()}>✓ {si}</Btn>
                           : <Btn style={{fontSize:10}} onClick={e=>{e.stopPropagation();setSched({...r,category:"restaurant"});}}>+ Schedule</Btn>}
@@ -691,6 +723,99 @@ function App() {
               </div>
             </div>)}
           </>)}
+        </div>
+      )}
+
+      {/* ========== WISHLIST ========== */}
+      {page==="wishlist" && (
+        <div className="page-wrap">
+          <div style={{textAlign:"center",padding:"24px 0 20px"}}>
+            <h2 style={{fontSize:24,fontWeight:300}}>★ Group Wishlist</h2>
+            <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#666",marginTop:4}}>
+              {me ? `Voting as ${me} — tap ★ on any card to vote` : "Pick your name to start voting →"}
+              {!me && <span onClick={()=>setShowWho(true)} style={{color:"#F2CC8F",cursor:"pointer",marginLeft:6,textDecoration:"underline"}}>Choose name</span>}
+            </p>
+          </div>
+          {[{l:"Restaurants",items:restaurants.map(i=>({...i,category:"restaurant"})),c:"#81B29A",ic:"🍽"},
+            {l:"Museums",items:museums.map(i=>({...i,category:"museum"})),c:"#F2CC8F",ic:"🏛"},
+            {l:"WWII Sites",items:wwii.map(i=>({...i,category:"wwii"})),c:"#E07A5F",ic:"🎖"},
+            {l:"Experiences",items:misc.map(i=>({...i,category:"misc"})),c:"#7B8CDE",ic:"📍"},
+          ].map(sec => {
+            const sorted = [...sec.items].sort((a,b)=>(getVotes(b.id).length)-(getVotes(a.id).length));
+            const voted = sorted.filter(i=>getVotes(i.id).length>0);
+            const unvoted = sorted.filter(i=>getVotes(i.id).length===0);
+            return (
+              <div key={sec.l} style={{marginBottom:28}}>
+                <h3 style={{fontSize:17,fontWeight:600,marginBottom:12}}>
+                  {sec.ic} {sec.l}
+                  <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#555",fontWeight:400,marginLeft:8}}>
+                    {voted.length} voted · {unvoted.length} unvoted
+                  </span>
+                </h3>
+                {voted.length>0 && <div style={{marginBottom:12}}>
+                  {voted.map(item => {
+                    const v=getVotes(item.id); const mv=myVote(item.id); const cc=CC[item.category];
+                    return (
+                      <div key={item.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:"#141414",border:"1px solid #222",borderRadius:10,marginBottom:6,borderLeft:`3px solid ${cc.accent}`}}>
+                        <div onClick={()=>toggleVote(item.id)} style={{cursor:"pointer",fontSize:18,color:mv?"#F2CC8F":"#444",flexShrink:0}}>{mv?"★":"☆"}</div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                            <span style={{fontSize:14,fontWeight:600}}>{item.icon?`${item.icon} `:""}{item.name}</span>
+                            {item.meal && <Tag color={item.meal==="dinner"?"#E07A5F":item.meal==="brunch"?"#D4A574":"#81B29A"}>{item.meal}</Tag>}
+                            {item.area && <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#666"}}>{item.area}</span>}
+                          </div>
+                          <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#F2CC8F",marginTop:3}}>
+                            {v.map((name,i)=><span key={name} style={{display:"inline-block",padding:"1px 6px",background:"#F2CC8F15",borderRadius:8,marginRight:4,fontSize:10}}>{name}</span>)}
+                          </div>
+                        </div>
+                        <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:20,fontWeight:300,color:sec.c,flexShrink:0}}>{v.length}</div>
+                      </div>
+                    );
+                  })}
+                </div>}
+                {unvoted.length>0 && (
+                  <details style={{marginTop:4}}>
+                    <summary style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#555",cursor:"pointer",padding:"6px 0"}}>
+                      {unvoted.length} more with no votes yet
+                    </summary>
+                    <div style={{marginTop:6}}>
+                      {unvoted.map(item => {
+                        const cc=CC[item.category];
+                        return (
+                          <div key={item.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",background:"#111",borderRadius:8,marginBottom:4,opacity:0.7,borderLeft:`3px solid ${cc.accent}33`}}>
+                            <div onClick={()=>toggleVote(item.id)} style={{cursor:"pointer",fontSize:16,color:"#444",flexShrink:0}}>☆</div>
+                            <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,flex:1}}>{item.icon?`${item.icon} `:""}{item.name}</span>
+                            {item.meal && <Tag color={item.meal==="dinner"?"#E07A5F":item.meal==="brunch"?"#D4A574":"#81B29A"}>{item.meal}</Tag>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </details>
+                )}
+              </div>
+            );
+          })}
+          {/* TOP PICKS SUMMARY */}
+          {(() => {
+            const allWithVotes = allItems.filter(i=>getVotes(i.id).length>0).sort((a,b)=>getVotes(b.id).length-getVotes(a.id).length);
+            if (allWithVotes.length === 0) return null;
+            return (
+              <div style={{marginTop:12,padding:16,background:"#111",borderRadius:10,border:"1px solid #F2CC8F33"}}>
+                <h3 style={{fontSize:16,fontWeight:600,color:"#F2CC8F",marginBottom:10}}>🏆 Top Picks Across Everything</h3>
+                {allWithVotes.slice(0,10).map((item,i) => {
+                  const v=getVotes(item.id); const cc=CC[item.category];
+                  return (
+                    <div key={item.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid #1a1a1a",fontFamily:"'DM Sans',sans-serif",fontSize:12}}>
+                      <span style={{color:"#F2CC8F",fontWeight:600,width:20}}>{i+1}.</span>
+                      <span style={{flex:1}}>{item.icon?`${item.icon} `:""}{item.name}</span>
+                      <Tag color={cc.accent}>{item.category==="restaurant"?(item.meal||"food"):item.category==="wwii"?"wwii":item.category==="misc"?"exp":"museum"}</Tag>
+                      <span style={{color:"#F2CC8F",fontWeight:600}}>{v.length} vote{v.length!==1?"s":""}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -762,6 +887,17 @@ function App() {
             ? <div style={{fontFamily:"'DM Sans',sans-serif",textAlign:"center",padding:10,background:"#81B29A11",borderRadius:8,border:"1px solid #81B29A33",color:"#81B29A",fontSize:13}}>✓ Scheduled: {schInfo(sel.id)}</div>
             : <Btn c="coral" style={{width:"100%",justifyContent:"center",padding:"10px 0",fontSize:13}} onClick={()=>{setSel(null);setSched(sel);}}>+ Add to Calendar</Btn>
           }
+          {getVotes(sel.id).length>0 && (
+            <div style={{marginTop:10,padding:10,background:"#F2CC8F0a",border:"1px solid #F2CC8F22",borderRadius:8}}>
+              <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#F2CC8F",textTransform:"uppercase",letterSpacing:"1px",marginBottom:4,fontWeight:600}}>🙋 {getVotes(sel.id).length} want to do this</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:4}}>{getVotes(sel.id).map(n=><span key={n} style={{fontFamily:"'DM Sans',sans-serif",display:"inline-block",padding:"2px 8px",background:"#F2CC8F15",borderRadius:8,fontSize:11,color:"#F2CC8F"}}>{n}</span>)}</div>
+            </div>
+          )}
+          <div style={{marginTop:8}}>
+            <Btn style={{width:"100%",justifyContent:"center",padding:"10px 0",fontSize:13,background:myVote(sel.id)?"#F2CC8F22":"transparent",borderColor:myVote(sel.id)?"#F2CC8F":"#333",color:myVote(sel.id)?"#F2CC8F":"#e8e0d4"}} onClick={()=>toggleVote(sel.id)}>
+              {myVote(sel.id)?"★ You want to do this":"☆ I want to do this"}
+            </Btn>
+          </div>
         </Modal>
       )}
 
@@ -866,6 +1002,24 @@ function App() {
               <Btn c="gold" style={{width:"100%",justifyContent:"center",padding:"10px 0"}} onClick={handleConnect}>Connect</Btn>
             </div>
           )}
+        </Modal>
+      )}
+
+      {/* WHO AM I PICKER */}
+      {showWho && (
+        <Modal onClose={()=>setShowWho(false)}>
+          <h3 style={{fontSize:20,fontWeight:600,marginBottom:4}}>👤 Who are you?</h3>
+          <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#888",marginBottom:16}}>Pick your name so your votes are tracked. This is saved on your device.</p>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            {D_TRAVELERS.map(t=>(
+              <Btn key={t.id} c={me===t.name?"gold":""} style={{justifyContent:"center",padding:"12px 0",fontSize:14}} onClick={()=>pickMe(t.name)}>
+                {t.name} <span style={{fontSize:10,opacity:0.6}}>({t.group})</span>
+              </Btn>
+            ))}
+          </div>
+          {me && <div style={{textAlign:"center",marginTop:12}}>
+            <Btn style={{color:"#E07A5F",borderColor:"#E07A5F33",fontSize:11}} onClick={()=>{setMe("");localStorage.removeItem("paris_me");setShowWho(false);}}>Clear selection</Btn>
+          </div>}
         </Modal>
       )}
     </div>
