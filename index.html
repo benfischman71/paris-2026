@@ -497,20 +497,40 @@ function App() {
   // ===== PRIORITIES =====
   const PRI = {must:{label:"Must Do",icon:"🔥",color:"#E07A5F",sort:1},want:{label:"Want To",icon:"⭐",color:"#F2CC8F",sort:2},iftime:{label:"If Time",icon:"💭",color:"#7B8CDE",sort:3}};
   const getPri = (id) => priorities[id] || null;
-  const cyclePri = (id) => {
+  const setPri = (id, val) => {
     setPriorities(p => {
-      const cur = p[id];
-      if (!cur) return {...p, [id]:"must"};
-      if (cur==="must") return {...p, [id]:"want"};
-      if (cur==="want") return {...p, [id]:"iftime"};
-      const n = {...p}; delete n[id]; return n;
+      if (!val) { const n={...p}; delete n[id]; return n; }
+      return {...p, [id]:val};
     });
   };
   const PriBadge = ({id, small}) => {
     const pri = getPri(id);
-    if (!pri) return <span onClick={e=>{e.stopPropagation();cyclePri(id);}} style={{fontFamily:"'DM Sans',sans-serif",fontSize:small?10:12,color:"#F2CC8F",cursor:"pointer",padding:small?"3px 8px":"5px 12px",borderRadius:10,border:"1px solid #F2CC8F66",background:"#F2CC8F11",whiteSpace:"nowrap",fontWeight:600}}>Rank</span>;
-    const p = PRI[pri];
-    return <span onClick={e=>{e.stopPropagation();cyclePri(id);}} style={{fontFamily:"'DM Sans',sans-serif",fontSize:small?10:12,fontWeight:600,color:p.color,cursor:"pointer",padding:small?"3px 8px":"5px 12px",borderRadius:10,background:`${p.color}18`,border:`1px solid ${p.color}33`,whiteSpace:"nowrap"}} title="Click to cycle: Must Do → Want To → If Time → Clear">{p.icon} {p.label}</span>;
+    const cur = pri ? PRI[pri] : null;
+    const col = cur ? cur.color : "#F2CC8F";
+    return (
+      <select
+        value={pri||""}
+        onClick={e=>e.stopPropagation()}
+        onChange={e=>{e.stopPropagation();setPri(id,e.target.value||null);}}
+        style={{
+          fontFamily:"'DM Sans',sans-serif",fontSize:small?10:12,fontWeight:600,
+          color:col,cursor:"pointer",
+          padding:small?"3px 6px":"5px 10px",borderRadius:10,
+          background:cur?`${col}18`:"#F2CC8F11",
+          border:`1px solid ${cur?`${col}33`:"#F2CC8F66"}`,
+          appearance:"none",WebkitAppearance:"none",MozAppearance:"none",
+          backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23${col.slice(1)}'/%3E%3C/svg%3E")`,
+          backgroundRepeat:"no-repeat",backgroundPosition:"right 6px center",
+          paddingRight:small?18:22,
+          outline:"none"
+        }}
+      >
+        <option value="" style={{background:"#1a1a1a",color:"#888"}}>Rank</option>
+        <option value="must" style={{background:"#1a1a1a",color:"#E07A5F"}}>🔥 Must Do</option>
+        <option value="want" style={{background:"#1a1a1a",color:"#F2CC8F"}}>⭐ Want To</option>
+        <option value="iftime" style={{background:"#1a1a1a",color:"#7B8CDE"}}>💭 If Time</option>
+      </select>
+    );
   };
 
   // ===== AI LOOKUP =====
