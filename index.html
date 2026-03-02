@@ -508,6 +508,40 @@ function App() {
     return null;
   };
   const fmtSync = () => { if(!lastSync) return null; const s=Math.floor((Date.now()-lastSync.getTime())/1000); return s<5?"Synced ✓":s<60?`Synced ${s}s ago`:`Synced ${Math.floor(s/60)}m ago`; };
+
+  const shareRankings = (items, catLabel) => {
+    const priSort = (id) => { const p=getPri(id); return p?PRI[p].sort:4; };
+    const sorted = [...items].sort((a,b)=>{
+      const pa=priSort(a.id), pb=priSort(b.id);
+      if(pa!==pb) return pa-pb;
+      return (getVotes(b.id).length)-(getVotes(a.id).length);
+    });
+    const mustDo = sorted.filter(i=>getPri(i.id)==="must");
+    const wantTo = sorted.filter(i=>getPri(i.id)==="want");
+    const ifTime = sorted.filter(i=>getPri(i.id)==="iftime");
+    const unranked = sorted.filter(i=>!getPri(i.id) && getVotes(i.id).length>0);
+
+    const fmtItem = (item,i) => {
+      const v = getVotes(item.id);
+      const votes = v.length > 0 ? ` (${v.length} vote${v.length!==1?"s":""}: ${v.join(", ")})` : "";
+      const meal = item.meal ? ` [${item.meal}]` : "";
+      const area = item.area ? ` — ${item.area}` : "";
+      return `  ${i+1}. ${item.name}${meal}${area}${votes}`;
+    };
+
+    let body = `🗼 Paris Trip — ${catLabel} Rankings\n`;
+    body += `Grandma's 80th Birthday · May 29 – Jun 2, 2026\n\n`;
+    if(mustDo.length) { body += `🔥 MUST DO\n${mustDo.map(fmtItem).join("\n")}\n\n`; }
+    if(wantTo.length) { body += `⭐ WANT TO\n${wantTo.map(fmtItem).join("\n")}\n\n`; }
+    if(ifTime.length) { body += `💭 IF TIME\n${ifTime.map(fmtItem).join("\n")}\n\n`; }
+    if(unranked.length) { body += `👍 VOTED BUT UNRANKED\n${unranked.map(fmtItem).join("\n")}\n\n`; }
+    if(!mustDo.length && !wantTo.length && !ifTime.length && !unranked.length) { body += "No rankings yet! Open the trip planner to vote and rank.\n\n"; }
+    body += `View full trip: https://benfischman71.github.io/paris-2026/`;
+
+    const subject = encodeURIComponent(`Paris Trip — ${catLabel} Rankings`);
+    const mailBody = encodeURIComponent(body);
+    window.open(`mailto:?subject=${subject}&body=${mailBody}`, "_self");
+  };
   const [,forceRender] = useState(0);
   useEffect(() => { const t=setInterval(()=>forceRender(n=>n+1),10000); return ()=>clearInterval(t); }, []);
 
@@ -702,7 +736,10 @@ function App() {
           {tab!=="restaurants" && (
             <div style={{display:"flex",flexWrap:"wrap",justifyContent:"space-between",alignItems:"center",gap:8,marginBottom:14}}>
               <p style={{fontFamily:"'DM Sans',sans-serif",color:"#666",fontSize:12}}>{tab==="museums"?"Click any card for details. + Schedule to add to calendar.":tab==="wwii"?"Essential WWII sites. Click for details.":"Key experiences & attractions."}</p>
-              {!addOpen && <Btn onClick={()=>setAddOpen(true)}>+ Add Custom</Btn>}
+              <div style={{display:"flex",gap:6}}>
+                <Btn onClick={()=>shareRankings(tab==="museums"?museums:tab==="wwii"?wwii:misc, tab==="museums"?"Museums":tab==="wwii"?"WWII Sites":"Experiences")}>📧 Share Rankings</Btn>
+                {!addOpen && <Btn onClick={()=>setAddOpen(true)}>+ Add Custom</Btn>}
+              </div>
             </div>
           )}
           {/* SEARCH BAR */}
@@ -743,7 +780,10 @@ function App() {
                 <div style={{fontSize:36,marginBottom:10}}>🍽</div>
                 <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:14}}>No restaurants yet</p>
               </div>
-            ) : (<div><div style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#666",marginBottom:14}}>The truly best — click any card for details, tips, and contact info.</div>
+            ) : (<div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+              <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#666"}}>The truly best — click any card for details, tips, and contact info.</span>
+              <Btn onClick={()=>shareRankings(restaurants,"Restaurants")}>📧 Share Rankings</Btn>
+            </div>
               <div className="grid-cards">
                 {restaurants.filter(r=>!searchQ||[r.name,r.area,r.desc,r.tip,r.meal].join(" ").toLowerCase().includes(searchQ.toLowerCase())).map(r=>{
                   const sc=isSch(r.id); const si=schInfo(r.id); const isEd=editId===r.id;
