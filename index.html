@@ -486,7 +486,7 @@ function App() {
     setLooking(true);
     setLookErr("");
     try {
-      const r = await fetch(`${SB_URL}/functions/v1/bright-endpoint`, {
+      const r = await fetch(`${SB_URL}/functions/v1/bright-processor`, {
         method:"POST",
         headers:{"Content-Type":"application/json","Authorization":`Bearer ${SB_KEY}`},
         body:JSON.stringify({name: name.trim(), type})
