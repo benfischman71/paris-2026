@@ -452,6 +452,34 @@ function App() {
   const ec = Object.keys(cal).length;
   const fmtDur = (d) => d>=60?`${Math.floor(d/60)}h${d%60?` ${d%60}m`:""}`:d+"min";
   const updFlight = (fid,field,val) => setFlights(p=>p.map(f=>f.id===fid?{...f,[field]:val}:f));
+  const lookupFlight = async (fid) => {
+    const f = flights.find(x=>x.id===fid);
+    if (!f || (!f.airline && !f.flight)) return;
+    const query = `${f.airline} ${f.flight}`.trim();
+    setLooking(true); setLookErr(null);
+    try {
+      const r = await fetch(`${SB_URL}/functions/v1/bright-processor`, {
+        method:"POST", headers:{"Content-Type":"application/json","Authorization":`Bearer ${SB_KEY}`},
+        body: JSON.stringify({name:query, type:"flight"})
+      });
+      const data = await r.json();
+      const text = (data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("\n");
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const info = JSON.parse(jsonMatch[0]);
+        setFlights(p=>p.map(fl=>fl.id===fid?{...fl,
+          airline:info.airline||fl.airline,
+          flight:info.flight||fl.flight,
+          departTime:info.departTime||info.depart_time||fl.departTime,
+          arriveTime:info.arriveTime||info.arrive_time||fl.arriveTime,
+          depart:info.departDate||info.depart_date||fl.depart,
+          arrive:info.arriveDate||info.arrive_date||fl.arrive,
+          notes:info.notes||fl.notes
+        }:fl));
+      } else { setLookErr("Couldn't parse flight info."); }
+    } catch(e) { setLookErr(`Error: ${e.message}`); }
+    setLooking(false);
+  };
   const updTrans = (tid,field,val) => setTransport(p=>p.map(t=>t.id===tid?{...t,[field]:val}:t));
 
   // ===== VOTING =====
@@ -643,11 +671,14 @@ function App() {
                 <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#F2CC8F",marginBottom:8,fontWeight:600}}>{f.dir==="outbound"?"→ Outbound":"← Return"}</div>
                 <div className="grid-4col">
                   <div><div style={S.fl}>Airline</div><Input placeholder="Delta, Air France…" value={f.airline} onChange={e=>updFlight(f.id,"airline",e.target.value)} /></div>
-                  <div><div style={S.fl}>Flight #</div><Input placeholder="DL123" value={f.flight} onChange={e=>updFlight(f.id,"flight",e.target.value)} /></div>
+                  <div><div style={S.fl}>Flight #</div><Input placeholder="DL123" value={f.flight} onChange={e=>updFlight(f.id,"flight",e.target.value)} onKeyDown={e=>e.key==="Enter"&&lookupFlight(f.id)} /></div>
                   <div><div style={S.fl}>Depart ({f.depart})</div><Input placeholder="Time" value={f.departTime} onChange={e=>updFlight(f.id,"departTime",e.target.value)} /></div>
                   <div><div style={S.fl}>Arrive ({f.arrive})</div><Input placeholder="Time" value={f.arriveTime} onChange={e=>updFlight(f.id,"arriveTime",e.target.value)} /></div>
                 </div>
-                <div style={{marginTop:8}}><div style={S.fl}>Notes</div><Input placeholder="Terminal, seats, etc." value={f.notes} onChange={e=>updFlight(f.id,"notes",e.target.value)} /></div>
+                <div style={{display:"flex",gap:8,marginTop:8,alignItems:"center"}}>
+                  <div style={{flex:1}}><div style={S.fl}>Notes</div><Input placeholder="Terminal, seats, etc." value={f.notes} onChange={e=>updFlight(f.id,"notes",e.target.value)} /></div>
+                  <Btn c="gold" onClick={()=>lookupFlight(f.id)} disabled={looking||(!f.airline&&!f.flight)} style={{marginTop:14,flexShrink:0}}>{looking?"🔍 Looking up…":"🔍 Look Up Flight"}</Btn>
+                </div>
               </div>))}
             </div>))}
           </div>
