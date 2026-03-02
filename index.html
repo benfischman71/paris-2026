@@ -390,7 +390,7 @@ function App() {
   const addCal = (item, day, time) => { setCal(p=>({...p,[`${day}-${time}`]:{...item,day,time}})); setSched(null); };
   const rmCal = (k) => setCal(p=>{ const c={...p}; delete c[k]; return c; });
   const isSch = (id) => Object.values(cal).some(e=>e.id===id);
-  const schInfo = (id) => { const e=Object.values(cal).find(e=>e.id===id); return e ? `${DAYS.find(d=>d.key===e.day)?.short} @ ${e.time}` : null; };
+  const schInfo = (id) => { const e=Object.values(cal).find(e=>e.id===id); if(!e) return null; const dayLabel=DAYS.find(d=>d.key===e.day)?.short; const timeLabel=e.time==="lunch"?"Lunch":e.time==="dinner"?"Dinner":e.time; return `${dayLabel} @ ${timeLabel}`; };
   const addItem = (cat) => {
     if(!addF.name.trim()) return;
     const item = {id:`${cat[0]}${Date.now()}`,name:addF.name.trim(),hours:addF.hours,area:addF.area,duration:parseInt(addF.duration)||60,desc:addF.desc,tip:addF.tip,closed:addF.closed||"",lat:addF.lat||48.856,lng:addF.lng||2.35};
@@ -951,6 +951,35 @@ function App() {
                 <div style={{fontSize:18,fontWeight:600,color:"#F2CC8F",marginTop:1}}>{d.short.split(" ")[1]}</div>
               </div>
             ))}
+            {/* MEAL SLOTS */}
+            {["🍽 Lunch","🍽 Dinner"].map(meal=>{
+              const mealKey = meal.includes("Lunch")?"lunch":"dinner";
+              const mealColor = mealKey==="lunch"?"#81B29A":"#E07A5F";
+              return (
+                <div key={meal} style={{display:"contents"}}>
+                  <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:600,color:mealColor,padding:"10px 4px 0 0",textAlign:"right",borderTop:`1px solid ${mealColor}33`}}>{meal}</div>
+                  {DAYS.map(day=>{
+                    const k=`${day.key}-${mealKey}`; const ev=cal[k];
+                    return (
+                      <div key={k} style={{minHeight:48,borderTop:`1px solid ${mealColor}33`,padding:2,cursor:"pointer",borderRadius:3,background:ev?`${mealColor}08`:`${mealColor}04`}} onClick={()=>!ev&&setSched({prefDay:day.key,prefTime:mealKey})}>
+                        {ev ? (
+                          <div style={{padding:"5px 8px",borderRadius:6,fontSize:11,fontFamily:"'DM Sans',sans-serif",fontWeight:500,lineHeight:1.3,background:`${mealColor}18`,color:mealColor,border:`1px solid ${mealColor}33`,cursor:"pointer"}}
+                            onClick={e=>{e.stopPropagation();if(window.confirm(`Remove "${ev.name}"?`))rmCal(k);}}>
+                            <div style={{fontWeight:600}}>{ev.icon?`${ev.icon} `:""}{ev.name}</div>
+                            {ev.area && <div style={{fontSize:9,opacity:0.7,marginTop:1}}>{ev.area}</div>}
+                          </div>
+                        ) : (
+                          <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:`${mealColor}44`,textAlign:"center",paddingTop:14}}>+ add</div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+            {/* SEPARATOR */}
+            <div style={{gridColumn:"1 / -1",height:1,background:"#333",margin:"4px 0"}} />
+            {/* TIME SLOTS */}
             {TIMES.map(time=>(
               <div key={time} style={{display:"contents"}}>
                 <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#555",padding:"10px 4px 0 0",textAlign:"right",borderTop:"1px solid #111"}}>{time}</div>
@@ -1048,6 +1077,13 @@ function App() {
           {DAYS.map(day=>(
             <div key={day.key} style={{marginBottom:10}}>
               <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,color:"#F2CC8F",marginBottom:5}}>{day.label}</div>
+              <div style={{display:"flex",gap:4,marginBottom:4}}>
+                {["lunch","dinner"].map(meal=>{
+                  const k=`${day.key}-${meal}`; const taken=cal[k]; const pref=sched.prefDay===day.key&&sched.prefTime===meal;
+                  const mc=meal==="lunch"?"#81B29A":"#E07A5F";
+                  return <Btn key={meal} disabled={!!taken} style={{flex:1,justifyContent:"center",fontSize:11,fontWeight:600,padding:"6px 0",opacity:taken?0.25:1,background:pref?`${mc}22`:taken?`${mc}08`:"transparent",borderColor:pref?mc:taken?`${mc}33`:"#333",color:taken?`${mc}88`:mc}} onClick={()=>addCal(sched,day.key,meal)}>🍽 {meal==="lunch"?"Lunch":"Dinner"}{taken?` — ${taken.name}`:""}</Btn>;
+                })}
+              </div>
               <div className="sched-times">
                 {TIMES.map(time=>{
                   const taken=cal[`${day.key}-${time}`]; const pref=sched.prefDay===day.key&&sched.prefTime===time;
