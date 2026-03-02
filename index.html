@@ -705,20 +705,18 @@ function App() {
               </button>
             ))}
           </div>
-          {/* Add form */}
-          {tab!=="restaurants" && addOpen && (
-            <div style={{...S.ib,marginBottom:16,border:`1px solid ${CC[tab==="museums"?"museum":tab==="wwii"?"wwii":"misc"].accent}33`}}>
-              <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,color:CC[tab==="museums"?"museum":tab==="wwii"?"wwii":"misc"].text,marginBottom:10}}>+ Add {tab==="museums"?"Museum":tab==="wwii"?"WWII Site":"Item"}</div>
-              <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
-                <Input value={addF.name} onChange={e=>setAddF(p=>({...p,name:e.target.value}))} placeholder={`Add new — e.g. "${tab==="museums"?"Musée de la Vie Romantique":tab==="wwii"?"Resistance Museum":"Jardin des Plantes"}"`} onKeyDown={e=>e.key==="Enter"&&findItem(tab==="museums"?"museum":tab==="wwii"?"wwii":"misc")} style={{flex:1}} />
-                <Btn c="gold" onClick={()=>findItem(tab==="museums"?"museum":tab==="wwii"?"wwii":"misc")} disabled={looking}>{looking?"🔍 Searching…":"🔍 Find"}</Btn>
-                <Btn c={tab==="museums"?"gold":tab==="wwii"?"coral":"blue"} onClick={()=>addItem(tab==="museums"?"museum":tab==="wwii"?"wwii":"misc")}>+ Add</Btn>
-                <Btn onClick={()=>setAddOpen(false)}>Cancel</Btn>
+          {/* Add form - always visible for non-restaurants */}
+          {tab!=="restaurants" && (
+            <div style={{marginBottom:18,background:"#141414",padding:12,borderRadius:12,border:"1px solid #222"}}>
+              <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                <Input value={addF.name} onChange={e=>setAddF(p=>({...p,name:e.target.value}))} placeholder={`Add new ${tab==="museums"?"museum":tab==="wwii"?"WWII site":"experience"}…`} onKeyDown={e=>e.key==="Enter"&&findItem(tab==="museums"?"museum":tab==="wwii"?"wwii":"misc")} style={{flex:"1 1 200px",minWidth:0}} />
+                <Btn c="gold" onClick={()=>findItem(tab==="museums"?"museum":tab==="wwii"?"wwii":"misc")} disabled={looking} style={{flexShrink:0}}>{looking?"🔍 Searching…":"🔍 Find"}</Btn>
+                <Btn c={tab==="museums"?"gold":tab==="wwii"?"coral":"blue"} onClick={()=>addItem(tab==="museums"?"museum":tab==="wwii"?"wwii":"misc")} style={{flexShrink:0}}>+ Add</Btn>
               </div>
-              {looking && <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#F2CC8F",textAlign:"center",animation:"pulse 1.5s infinite"}}>✨ Searching for "{addF.name}" in Paris…</div>}
-              {lookErr && <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#E07A5F",textAlign:"center",marginBottom:8}}>{lookErr}</div>}
+              {looking && <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#F2CC8F",marginTop:8,textAlign:"center",animation:"pulse 1.5s infinite"}}>✨ Searching for "{addF.name}" in Paris…</div>}
+              {lookErr && <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#E07A5F",marginTop:8,textAlign:"center"}}>{lookErr}</div>}
               {(addF.area||addF.hours||addF.desc) && (
-                <div style={{borderTop:"1px solid #222",paddingTop:10}}>
+                <div style={{borderTop:"1px solid #222",paddingTop:10,marginTop:10}}>
                   <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#81B29A",marginBottom:8,textTransform:"uppercase",letterSpacing:"1px"}}>✓ Found — review and edit, then hit + Add</div>
                   <div className="grid-3col" style={{marginBottom:8}}>
                     <div><div style={S.fl}>Area</div><Input value={addF.area} onChange={e=>setAddF(p=>({...p,area:e.target.value}))} /></div>
@@ -729,14 +727,6 @@ function App() {
                   <div><div style={S.fl}>Tip</div><Input value={addF.tip} onChange={e=>setAddF(p=>({...p,tip:e.target.value}))} /></div>
                 </div>
               )}
-            </div>
-          )}
-          {tab!=="restaurants" && (
-            <div style={{display:"flex",flexWrap:"wrap",justifyContent:"space-between",alignItems:"center",gap:8,marginBottom:14}}>
-              <p style={{fontFamily:"'DM Sans',sans-serif",color:"#666",fontSize:12}}>{tab==="museums"?"Click any card for details. + Schedule to add to calendar.":tab==="wwii"?"Essential WWII sites. Click for details.":"Key experiences & attractions."}</p>
-              <div style={{display:"flex",gap:6}}>
-                {!addOpen && <Btn onClick={()=>setAddOpen(true)}>+ Add Custom</Btn>}
-              </div>
             </div>
           )}
           {/* SEARCH BAR */}
