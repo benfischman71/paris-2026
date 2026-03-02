@@ -709,7 +709,7 @@ function App() {
             <div style={{...S.ib,marginBottom:16,border:`1px solid ${CC[tab==="museums"?"museum":tab==="wwii"?"wwii":"misc"].accent}33`}}>
               <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,color:CC[tab==="museums"?"museum":tab==="wwii"?"wwii":"misc"].text,marginBottom:10}}>+ Add {tab==="museums"?"Museum":tab==="wwii"?"WWII Site":"Item"}</div>
               <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
-                <Input value={addF.name} onChange={e=>setAddF(p=>({...p,name:e.target.value}))} placeholder={`Type a name — e.g. "${tab==="museums"?"Musée de la Vie Romantique":tab==="wwii"?"Resistance Museum":"Jardin des Plantes"}"`} onKeyDown={e=>e.key==="Enter"&&findItem(tab==="museums"?"museum":tab==="wwii"?"wwii":"misc")} style={{flex:1}} />
+                <Input value={addF.name} onChange={e=>setAddF(p=>({...p,name:e.target.value}))} placeholder={`Add new — e.g. "${tab==="museums"?"Musée de la Vie Romantique":tab==="wwii"?"Resistance Museum":"Jardin des Plantes"}"`} onKeyDown={e=>e.key==="Enter"&&findItem(tab==="museums"?"museum":tab==="wwii"?"wwii":"misc")} style={{flex:1}} />
                 <Btn c="gold" onClick={()=>findItem(tab==="museums"?"museum":tab==="wwii"?"wwii":"misc")} disabled={looking}>{looking?"🔍 Searching…":"🔍 Find"}</Btn>
                 <Btn c={tab==="museums"?"gold":tab==="wwii"?"coral":"blue"} onClick={()=>addItem(tab==="museums"?"museum":tab==="wwii"?"wwii":"misc")}>+ Add</Btn>
                 <Btn onClick={()=>setAddOpen(false)}>Cancel</Btn>
@@ -740,7 +740,7 @@ function App() {
           )}
           {/* SEARCH BAR */}
           <div style={{marginBottom:12}}>
-            <Input placeholder={`🔎 Search ${tab==="museums"?"museums":tab==="wwii"?"WWII sites":tab==="misc"?"experiences":"restaurants"}…`} value={searchQ} onChange={e=>setSearchQ(e.target.value)} style={{width:"100%",fontSize:13,padding:"10px 14px"}} />
+            <Input placeholder={`🔎 Filter ${tab==="museums"?"museums":tab==="wwii"?"WWII sites":tab==="misc"?"experiences":"restaurants"} list…`} value={searchQ} onChange={e=>setSearchQ(e.target.value)} style={{width:"100%",fontSize:13,padding:"10px 14px"}} />
           </div>
           {tab==="museums" && renderCards(museums.filter(i=>!searchQ||[i.name,i.area,i.desc,i.tip].join(" ").toLowerCase().includes(searchQ.toLowerCase())),"museum")}
           {tab==="wwii" && renderCards(wwii.filter(i=>!searchQ||[i.name,i.area,i.desc,i.tip].join(" ").toLowerCase().includes(searchQ.toLowerCase())),"wwii")}
@@ -748,7 +748,7 @@ function App() {
           {tab==="restaurants" && (<>
             <div style={{marginBottom:18,background:"#141414",padding:12,borderRadius:12,border:"1px solid #222"}}>
               <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-                <Input placeholder="Restaurant name…" value={restF.name} onChange={e=>setRestF(p=>({...p,name:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&findRest()} style={{flex:"1 1 200px",minWidth:0}} />
+                <Input placeholder="Add new restaurant…" value={restF.name} onChange={e=>setRestF(p=>({...p,name:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&findRest()} style={{flex:"1 1 200px",minWidth:0}} />
                 <Select value={restF.meal} onChange={e=>setRestF(p=>({...p,meal:e.target.value}))} style={{width:100,flexShrink:0}}>
                   <option value="dinner">Dinner</option><option value="lunch">Lunch</option><option value="brunch">Brunch</option>
                 </Select>
