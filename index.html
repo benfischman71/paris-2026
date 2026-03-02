@@ -264,8 +264,8 @@ function App() {
   const [showWho, setShowWho] = useState(false);
 
   // ===== SUPABASE STATE =====
-  const [sbUrl, setSbUrl] = useState(localStorage.getItem("paris_sb_url")||"");
-  const [sbKey, setSbKey] = useState(localStorage.getItem("paris_sb_key")||"");
+  const SB_URL = "https://mztgaqeyluxpyvaqnyno.supabase.co";
+  const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16dGdhcWV5bHV4cHl2YXFueW5vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzOTQxOTYsImV4cCI6MjA4Nzk3MDE5Nn0.QZJb9ki0pbP31Lfop4aY9kfRF2uD6pKn80HdSSgpuv4";
   const [aiKey, setAiKey] = useState(localStorage.getItem("paris_ai_key")||"");
   const [setupAiKey, setSetupAiKey] = useState("");
   const [looking, setLooking] = useState(false);
@@ -273,23 +273,16 @@ function App() {
   const [syncing, setSyncing] = useState(false);
   const [lastSync, setLastSync] = useState(null);
   const [showSetup, setShowSetup] = useState(false);
-  const [setupUrl, setSetupUrl] = useState("");
-  const [setupKey, setSetupKey] = useState("");
-  const [setupErr, setSetupErr] = useState("");
   const db = useRef(null);
   const loaded = useRef(false);
   const saveTimer = useRef(null);
   const pollTimer = useRef(null);
   const lastFetch = useRef({trip:null,act:null});
 
-  // Connect to Supabase on mount
+  // Auto-connect on mount
   useEffect(() => {
-    if (sbUrl && sbKey) {
-      db.current = createClient(sbUrl, sbKey);
-      loadFromDB();
-    } else {
-      loaded.current = true;
-    }
+    db.current = createClient(SB_URL, SB_KEY);
+    loadFromDB();
     return () => { if (pollTimer.current) clearInterval(pollTimer.current); };
   }, []);
 
@@ -298,7 +291,10 @@ function App() {
     setSyncing(true);
     try {
       const [tripRow, actRow] = await Promise.all([db.current.get("trip_details"), db.current.get("activities")]);
-      if (tripRow?.value) {
+      if (!tripRow) {
+        await db.current.set("trip_details", { travelers:D_TRAVELERS, flights:D_FLIGHTS, hotel:{name:"",address:"",phone:"",conf:"",notes:""}, transport:[{id:"tr1",label:"Airport → Hotel (Arrival)",details:"",notes:""},{id:"tr2",label:"Hotel → Airport (Departure)",details:"",notes:""}] });
+        await db.current.set("activities", { museums:D_MUSEUMS, wwii:D_WWII, misc:D_MISC, restaurants:D_RESTAURANTS, cal:{}, votes:{} });
+      } else {
         const d = tripRow.value;
         if (d.travelers) setTravelers(d.travelers);
         if (d.flights) setFlights(d.flights);
@@ -318,7 +314,6 @@ function App() {
       }
       setConnected(true);
       setLastSync(new Date());
-      // Start polling for other users' changes
       if (pollTimer.current) clearInterval(pollTimer.current);
       pollTimer.current = setInterval(pollForChanges, 5000);
     } catch(e) { console.log("Load error:", e); }
@@ -378,36 +373,6 @@ function App() {
     }, 800);
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
   }, [travelers, flights, hotel, transport, museums, wwii, misc, restaurants, cal, votes]);
-
-  const handleConnect = async () => {
-    if (!setupUrl.trim() || !setupKey.trim()) { setSetupErr("Both fields required"); return; }
-    const url = setupUrl.trim().replace(/\/$/, "");
-    const key = setupKey.trim();
-    setSetupErr("");
-    try {
-      const client = createClient(url, key);
-      // Test connection by trying to read
-      await client.get("trip_details");
-      localStorage.setItem("paris_sb_url", url);
-      localStorage.setItem("paris_sb_key", key);
-      setSbUrl(url); setSbKey(key);
-      db.current = client;
-      // Initialize with defaults if empty
-      const existing = await client.get("trip_details");
-      if (!existing) {
-        await client.set("trip_details", { travelers:D_TRAVELERS, flights:D_FLIGHTS, hotel:{name:"",address:"",phone:"",conf:"",notes:""}, transport:[{id:"tr1",label:"Airport → Hotel (Arrival)",details:"",notes:""},{id:"tr2",label:"Hotel → Airport (Departure)",details:"",notes:""}] });
-        await client.set("activities", { museums:D_MUSEUMS, wwii:D_WWII, misc:D_MISC, restaurants:D_RESTAURANTS, cal:{}, votes:{} });
-      }
-      await loadFromDB();
-      setShowSetup(false);
-    } catch(e) { setSetupErr("Connection failed — check URL and key"); }
-  };
-
-  const handleDisconnect = () => {
-    localStorage.removeItem("paris_sb_url"); localStorage.removeItem("paris_sb_key");
-    setSbUrl(""); setSbKey(""); setConnected(false); db.current = null;
-    if (pollTimer.current) clearInterval(pollTimer.current);
-  };
 
   const resetData = async () => {
     if (!window.confirm("Reset ALL trip data to defaults? This cannot be undone.")) return;
@@ -563,8 +528,8 @@ function App() {
         </div>
         <div className="hdr-nav">
           {connected && fmtSync() && <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#81B29A",opacity:0.8}}>{fmtSync()}</span>}
-          <span onClick={()=>{setShowSetup(true);setSetupUrl(sbUrl);setSetupKey(sbKey);setSetupAiKey(aiKey);setSetupErr("");}} style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:connected?"#81B29A":"#E07A5F",cursor:"pointer",padding:"4px 8px",borderRadius:10,border:`1px solid ${connected?"#81B29A33":"#E07A5F33"}`}}>
-            {connected?"☁ Cloud":"⚙ Setup"}
+          <span onClick={()=>{setShowSetup(true);setSetupAiKey(aiKey);}} style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#81B29A",cursor:"pointer",padding:"4px 8px",borderRadius:10,border:"1px solid #81B29A33"}}>
+            ⚙
           </span>
           <span onClick={()=>setShowWho(true)} style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:me?"#F2CC8F":"#E07A5F",cursor:"pointer",padding:"4px 8px",borderRadius:10,border:`1px solid ${me?"#F2CC8F33":"#E07A5F33"}`}}>
             {me?`👤 ${me}`:"👤 Who?"}
@@ -650,11 +615,11 @@ function App() {
           </div>
           {/* SYNC STATUS */}
           <div style={{marginTop:24,padding:16,background:"#111",borderRadius:10,border:"1px solid #1a1a1a",textAlign:"center"}}>
-            <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:connected?"#81B29A":"#F2CC8F",marginBottom:6}}>
-              {connected ? `☁ Cloud sync active — ${fmtSync()?.toLowerCase()||"connected"}` : "⚠ Local only — connect to Supabase to share with the group"}
+            <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#81B29A",marginBottom:6}}>
+              {connected ? `☁ Cloud sync active — ${fmtSync()?.toLowerCase()||"connected"}` : "☁ Connecting to cloud…"}
             </div>
             <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#666",lineHeight:1.6}}>
-              {connected ? "All changes auto-save and sync across everyone's devices every 5 seconds." : "Click ⚙ Local in the header to connect."}
+              All changes auto-save and sync across everyone's devices every 5 seconds.
             </div>
             <div style={{marginTop:12}}>
               <Btn style={{fontSize:10,color:"#E07A5F",borderColor:"#E07A5F33"}} onClick={resetData}>↺ Reset All Data to Defaults</Btn>
@@ -683,7 +648,7 @@ function App() {
                 <Btn onClick={()=>setAddOpen(false)}>Cancel</Btn>
               </div>
               {looking && <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#F2CC8F",textAlign:"center",animation:"pulse 1.5s infinite"}}>✨ Researching "{addF.name}" — filling in hours, area, description, tips…</div>}
-              {!aiKey && <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#555",textAlign:"center"}}>💡 Add an Anthropic API key in <span onClick={()=>{setShowSetup(true);setSetupUrl(sbUrl);setSetupKey(sbKey);setSetupAiKey(aiKey);setSetupErr("");}} style={{color:"#F2CC8F",cursor:"pointer",textDecoration:"underline"}}>☁ Settings</span> to auto-fill details</div>}
+              {!aiKey && <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#555",textAlign:"center"}}>💡 Add an Anthropic API key in <span onClick={()=>{setShowSetup(true);setSetupAiKey(aiKey);}} style={{color:"#F2CC8F",cursor:"pointer",textDecoration:"underline"}}>☁ Settings</span> to auto-fill details</div>}
             </div>
           )}
           {tab!=="restaurants" && (
@@ -705,7 +670,7 @@ function App() {
                 <Btn c="green" onClick={addRest} disabled={looking}>{looking?"🔍 Looking up…":"+ Add"}</Btn>
               </div>
               {looking && <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#F2CC8F",marginTop:8,textAlign:"center",animation:"pulse 1.5s infinite"}}>✨ Researching "{restF.name}" — filling in hours, area, description, tips…</div>}
-              {!aiKey && <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#555",marginTop:6,textAlign:"center"}}>💡 Add an Anthropic API key in <span onClick={()=>{setShowSetup(true);setSetupUrl(sbUrl);setSetupKey(sbKey);setSetupAiKey(aiKey);setSetupErr("");}} style={{color:"#F2CC8F",cursor:"pointer",textDecoration:"underline"}}>☁ Settings</span> to auto-fill restaurant details</div>}
+              {!aiKey && <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#555",marginTop:6,textAlign:"center"}}>💡 Add an Anthropic API key in <span onClick={()=>{setShowSetup(true);setSetupAiKey(aiKey);}} style={{color:"#F2CC8F",cursor:"pointer",textDecoration:"underline"}}>☁ Settings</span> to auto-fill restaurant details</div>}
             </div>
             {restaurants.length===0 ? (
               <div style={{textAlign:"center",padding:"50px 20px",border:"1px dashed #333",borderRadius:12,color:"#555"}}>
@@ -1012,9 +977,6 @@ function App() {
       {showSetup && (
         <Modal onClose={()=>setShowSetup(false)}>
           <h3 style={{fontSize:20,fontWeight:600,marginBottom:4}}>⚙ Settings</h3>
-          <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#888",marginBottom:16,lineHeight:1.6}}>
-            Cloud sync + AI auto-fill for new places.
-          </p>
 
           {/* AI LOOKUP */}
           <div style={{marginBottom:20,padding:14,background:"#111",borderRadius:10,border:"1px solid #F2CC8F33"}}>
@@ -1035,32 +997,12 @@ function App() {
             )}
           </div>
 
-          {/* SUPABASE */}
+          {/* CLOUD STATUS */}
           <div style={{padding:14,background:"#111",borderRadius:10,border:"1px solid #81B29A33"}}>
-            <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,color:"#81B29A",marginBottom:8}}>☁ Cloud Sync (Supabase)</div>
-            <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#666",marginBottom:10,lineHeight:1.5}}>Connect so all 10 travelers edit the same trip. Changes sync every 5 seconds.</p>
-          {connected ? (
-            <div>
-              <div style={{background:"#81B29A11",border:"1px solid #81B29A33",borderRadius:8,padding:12,marginBottom:14,textAlign:"center"}}>
-                <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"#81B29A",fontWeight:600}}>✓ Connected</div>
-                <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#666",marginTop:4}}>{sbUrl}</div>
-              </div>
-              <Btn style={{width:"100%",justifyContent:"center",color:"#E07A5F",borderColor:"#E07A5F33"}} onClick={()=>{handleDisconnect();setShowSetup(false);}}>Disconnect</Btn>
+            <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,color:"#81B29A",marginBottom:8}}>☁ Cloud Sync</div>
+            <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:connected?"#81B29A":"#E07A5F",lineHeight:1.5}}>
+              {connected ? "✓ Connected — all changes sync automatically across everyone's devices." : "Connecting…"}
             </div>
-          ) : (
-            <div>
-              <div style={{marginBottom:12}}>
-                <div style={S.fl}>Supabase URL</div>
-                <Input placeholder="https://xxxxx.supabase.co" value={setupUrl} onChange={e=>setSetupUrl(e.target.value)} />
-              </div>
-              <div style={{marginBottom:12}}>
-                <div style={S.fl}>Anon Key (legacy)</div>
-                <Input placeholder="eyJ…" value={setupKey} onChange={e=>setSetupKey(e.target.value)} />
-              </div>
-              {setupErr && <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#E07A5F",marginBottom:10}}>{setupErr}</div>}
-              <Btn c="gold" style={{width:"100%",justifyContent:"center",padding:"10px 0"}} onClick={handleConnect}>Connect</Btn>
-            </div>
-          )}
           </div>
         </Modal>
       )}
