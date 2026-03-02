@@ -522,11 +522,8 @@ function App() {
     const unranked = sorted.filter(i=>!getPri(i.id) && getVotes(i.id).length>0);
 
     const fmtItem = (item,i) => {
-      const v = getVotes(item.id);
-      const votes = v.length > 0 ? ` (${v.length} vote${v.length!==1?"s":""}: ${v.join(", ")})` : "";
-      const meal = item.meal ? ` [${item.meal}]` : "";
       const area = item.area ? ` — ${item.area}` : "";
-      return `  ${i+1}. ${item.name}${meal}${area}${votes}`;
+      return `  ${i+1}. ${item.name}${area}`;
     };
 
     let body = `🗼 Paris Trip — ${catLabel} Rankings\n`;
