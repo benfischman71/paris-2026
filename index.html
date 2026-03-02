@@ -217,6 +217,11 @@ const D_RESTAURANTS = [
   {id:"r36",name:"Le Baratin",meal:"dinner",hours:"Tue–Fri lunch; Tue–Sat dinner",area:"20th Arr. (Belleville)",phone:"+33 1 43 49 39 70",duration:120,desc:"Raquel Carena's legendary Belleville bistro — heart of Paris's natural wine scene for 30+ years.",tip:"Cash preferred. Book ahead for dinner.",lat:48.8718,lng:2.3891,travel:"🚇 Eastern Paris · Métro 11 to Belleville"},
 ];
 
+// URL lookup from defaults
+const D_URLS = {};
+[...D_MUSEUMS,...D_WWII,...D_MISC,...D_RESTAURANTS].forEach(i=>{if(i.url)D_URLS[i.id]=i.url;});
+const mergeUrls = (items) => items.map(i=>i.url?i:{...i,url:D_URLS[i.id]||""});
+
 const CC = {
   museum:{bg:"#1a1a2e",text:"#F2CC8F",accent:"#F2CC8F"},
   wwii:{bg:"#2d1b1b",text:"#E07A5F",accent:"#E07A5F"},
@@ -304,10 +309,10 @@ function App() {
       }
       if (actRow?.value) {
         const d = actRow.value;
-        if (d.museums) setMuseums(d.museums);
-        if (d.wwii) setWwii(d.wwii);
-        if (d.misc) setMisc(d.misc);
-        if (d.restaurants) setRestaurants(d.restaurants);
+        if (d.museums) setMuseums(mergeUrls(d.museums));
+        if (d.wwii) setWwii(mergeUrls(d.wwii));
+        if (d.misc) setMisc(mergeUrls(d.misc));
+        if (d.restaurants) setRestaurants(mergeUrls(d.restaurants));
         if (d.cal) setCal(d.cal);
         if (d.votes) setVotes(d.votes); if (d.priorities) setPriorities(d.priorities);
         lastFetch.current.act = actRow.updated_at;
@@ -342,10 +347,10 @@ function App() {
         const row = await db.current.get("activities");
         if (row?.value) {
           const d = row.value;
-          if (d.museums) setMuseums(d.museums);
-          if (d.wwii) setWwii(d.wwii);
-          if (d.misc) setMisc(d.misc);
-          if (d.restaurants) setRestaurants(d.restaurants);
+          if (d.museums) setMuseums(mergeUrls(d.museums));
+          if (d.wwii) setWwii(mergeUrls(d.wwii));
+          if (d.misc) setMisc(mergeUrls(d.misc));
+          if (d.restaurants) setRestaurants(mergeUrls(d.restaurants));
           if (d.cal) setCal(d.cal);
           if (d.votes) setVotes(d.votes); if (d.priorities) setPriorities(d.priorities);
           lastFetch.current.act = row.updated_at;
