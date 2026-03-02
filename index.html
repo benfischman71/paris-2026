@@ -390,20 +390,30 @@ function App() {
   const rmCal = (k) => setCal(p=>{ const c={...p}; delete c[k]; return c; });
   const isSch = (id) => Object.values(cal).some(e=>e.id===id);
   const schInfo = (id) => { const e=Object.values(cal).find(e=>e.id===id); return e ? `${DAYS.find(d=>d.key===e.day)?.short} @ ${e.time}` : null; };
-  const addItem = async (cat) => {
+  const addItem = (cat) => {
     if(!addF.name.trim()) return;
-    const result = AI_KEY ? await lookupPlace(addF.name, cat) : null;
-    const r = result || {};
-    const item = {id:`${cat[0]}${Date.now()}`,name:r.name||addF.name.trim(),hours:r.hours||addF.hours,area:r.area||addF.area,duration:parseInt(r.duration||addF.duration)||60,desc:r.desc||addF.desc,tip:r.tip||addF.tip,lat:r.lat||48.856,lng:r.lng||2.35,closed:r.closed||""};
+    const item = {id:`${cat[0]}${Date.now()}`,name:addF.name.trim(),hours:addF.hours,area:addF.area,duration:parseInt(addF.duration)||60,desc:addF.desc,tip:addF.tip,closed:addF.closed||"",lat:addF.lat||48.856,lng:addF.lng||2.35};
     if(cat==="museum") setMuseums(p=>[...p,item]); else if(cat==="wwii") setWwii(p=>[...p,item]); else setMisc(p=>[...p,{...item,icon:addF.icon||"📌"}]);
     setAddF({name:"",hours:"",area:"",duration:"60",desc:"",tip:"",icon:""}); setAddOpen(false);
   };
-  const addRest = async () => {
+  const findItem = async (cat) => {
+    if (!addF.name.trim()) return;
+    const result = await lookupPlace(addF.name, cat);
+    if (result) {
+      setAddF(p => ({...p, name:result.name||p.name, hours:result.hours||"", area:result.area||"", duration:String(result.duration||60), desc:result.desc||"", tip:result.tip||"", closed:result.closed||"", lat:result.lat||48.856, lng:result.lng||2.35}));
+    }
+  };
+  const addRest = () => {
     if(!restF.name.trim()) return;
-    const result = AI_KEY ? await lookupPlace(restF.name, "restaurant") : null;
-    const r = result || {};
-    setRestaurants(p=>[...p,{id:`r${Date.now()}`,name:r.name||restF.name.trim(),meal:r.meal||restF.meal,hours:r.hours||"",area:r.area||"",phone:r.phone||"",duration:parseInt(r.duration)||(restF.meal==="brunch"?90:restF.meal==="lunch"?90:120),desc:r.desc||"",tip:r.tip||"",lat:r.lat||48.856,lng:r.lng||2.352}]);
-    setRestF({name:"",meal:"lunch",hours:"",area:"",phone:"",desc:"",tip:""});
+    setRestaurants(p=>[...p,{id:`r${Date.now()}`,name:restF.name.trim(),meal:restF.meal||"dinner",hours:restF.hours||"",area:restF.area||"",phone:restF.phone||"",duration:parseInt(restF.duration)||(restF.meal==="brunch"?90:restF.meal==="lunch"?90:120),desc:restF.desc||"",tip:restF.tip||"",lat:restF.lat||48.856,lng:restF.lng||2.352}]);
+    setRestF({name:"",meal:"dinner"});
+  };
+  const findRest = async () => {
+    if (!restF.name.trim()) return;
+    const result = await lookupPlace(restF.name, "restaurant");
+    if (result) {
+      setRestF(p => ({...p, name:result.name||p.name, hours:result.hours||"", area:result.area||"", phone:result.phone||"", desc:result.desc||"", tip:result.tip||"", meal:result.meal||p.meal, duration:String(result.duration||90), lat:result.lat||48.856, lng:result.lng||2.352}));
+    }
   };
   const rmItem = (id, cat) => {
     const fn = cat==="museum"?setMuseums:cat==="wwii"?setWwii:cat==="misc"?setMisc:setRestaurants;
@@ -451,10 +461,11 @@ function App() {
   const pickMe = (name) => { setMe(name); localStorage.setItem("paris_me", name); setShowWho(false); };
 
   // ===== AI LOOKUP =====
+  const [lookErr, setLookErr] = useState("");
   const lookupPlace = async (name, type) => {
-    if (!AI_KEY) { alert("Add your Anthropic API key in ☁ Settings to enable auto-lookup."); return null; }
     if (!name.trim()) return null;
     setLooking(true);
+    setLookErr("");
     try {
       const isRest = type === "restaurant";
       const prompt = isRest
@@ -465,8 +476,9 @@ function App() {
         headers:{"Content-Type":"application/json","x-api-key":AI_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
         body:JSON.stringify({model:"claude-sonnet-4-5-20250929",max_tokens:1024,tools:[{type:"web_search_20250305",name:"web_search",max_uses:3}],messages:[{role:"user",content:prompt}]})
       });
+      if (!r.ok) { setLookErr(`API error: ${r.status} ${r.statusText}`); setLooking(false); return null; }
       const data = await r.json();
-      if (data.error) { console.log("API error:", data.error); setLooking(false); return null; }
+      if (data.error) { setLookErr(`API error: ${data.error.message||JSON.stringify(data.error)}`); setLooking(false); return null; }
       const text = data.content?.filter(b=>b.type==="text").map(b=>b.text).join("") || "";
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
@@ -474,7 +486,8 @@ function App() {
         setLooking(false);
         return parsed;
       }
-    } catch(e) { console.log("Lookup error:", e); }
+      setLookErr("Couldn't parse response. Try again.");
+    } catch(e) { setLookErr(`Error: ${e.message}`); }
     setLooking(false);
     return null;
   };
@@ -646,11 +659,25 @@ function App() {
             <div style={{...S.ib,marginBottom:16,border:`1px solid ${CC[tab==="museums"?"museum":tab==="wwii"?"wwii":"misc"].accent}33`}}>
               <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,color:CC[tab==="museums"?"museum":tab==="wwii"?"wwii":"misc"].text,marginBottom:10}}>+ Add {tab==="museums"?"Museum":tab==="wwii"?"WWII Site":"Item"}</div>
               <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
-                <Input value={addF.name} onChange={e=>setAddF(p=>({...p,name:e.target.value}))} placeholder={`Type a name — e.g. "${tab==="museums"?"Musée de la Vie Romantique":tab==="wwii"?"Resistance Museum":"Jardin des Plantes"}"`} onKeyDown={e=>e.key==="Enter"&&addItem(tab==="museums"?"museum":tab==="wwii"?"wwii":"misc")} style={{flex:1}} />
-                <Btn c={tab==="museums"?"gold":tab==="wwii"?"coral":"blue"} onClick={()=>addItem(tab==="museums"?"museum":tab==="wwii"?"wwii":"misc")} disabled={looking}>{looking?"🔍 Looking up…":"+ Add"}</Btn>
+                <Input value={addF.name} onChange={e=>setAddF(p=>({...p,name:e.target.value}))} placeholder={`Type a name — e.g. "${tab==="museums"?"Musée de la Vie Romantique":tab==="wwii"?"Resistance Museum":"Jardin des Plantes"}"`} onKeyDown={e=>e.key==="Enter"&&findItem(tab==="museums"?"museum":tab==="wwii"?"wwii":"misc")} style={{flex:1}} />
+                <Btn c="gold" onClick={()=>findItem(tab==="museums"?"museum":tab==="wwii"?"wwii":"misc")} disabled={looking}>{looking?"🔍 Searching…":"🔍 Find"}</Btn>
+                <Btn c={tab==="museums"?"gold":tab==="wwii"?"coral":"blue"} onClick={()=>addItem(tab==="museums"?"museum":tab==="wwii"?"wwii":"misc")}>+ Add</Btn>
                 <Btn onClick={()=>setAddOpen(false)}>Cancel</Btn>
               </div>
-              {looking && <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#F2CC8F",textAlign:"center",animation:"pulse 1.5s infinite"}}>✨ Researching "{addF.name}" — filling in hours, area, description, tips…</div>}
+              {looking && <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#F2CC8F",textAlign:"center",animation:"pulse 1.5s infinite"}}>✨ Searching for "{addF.name}" in Paris…</div>}
+              {lookErr && <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#E07A5F",textAlign:"center",marginBottom:8}}>{lookErr}</div>}
+              {(addF.area||addF.hours||addF.desc) && (
+                <div style={{borderTop:"1px solid #222",paddingTop:10}}>
+                  <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#81B29A",marginBottom:8,textTransform:"uppercase",letterSpacing:"1px"}}>✓ Found — review and edit, then hit + Add</div>
+                  <div className="grid-3col" style={{marginBottom:8}}>
+                    <div><div style={S.fl}>Area</div><Input value={addF.area} onChange={e=>setAddF(p=>({...p,area:e.target.value}))} /></div>
+                    <div><div style={S.fl}>Hours</div><Input value={addF.hours} onChange={e=>setAddF(p=>({...p,hours:e.target.value}))} /></div>
+                    <div><div style={S.fl}>Duration (min)</div><Input value={addF.duration} onChange={e=>setAddF(p=>({...p,duration:e.target.value}))} /></div>
+                  </div>
+                  <div style={{marginBottom:8}}><div style={S.fl}>Description</div><TextArea value={addF.desc} onChange={e=>setAddF(p=>({...p,desc:e.target.value}))} /></div>
+                  <div><div style={S.fl}>Tip</div><Input value={addF.tip} onChange={e=>setAddF(p=>({...p,tip:e.target.value}))} /></div>
+                </div>
+              )}
             </div>
           )}
           {tab!=="restaurants" && (
@@ -665,13 +692,28 @@ function App() {
           {tab==="restaurants" && (<>
             <div style={{marginBottom:18,background:"#141414",padding:12,borderRadius:12,border:"1px solid #222"}}>
               <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-                <Input placeholder="Restaurant name…" value={restF.name} onChange={e=>setRestF(p=>({...p,name:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&addRest()} style={{flex:"1 1 200px",minWidth:0}} />
+                <Input placeholder="Restaurant name…" value={restF.name} onChange={e=>setRestF(p=>({...p,name:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&findRest()} style={{flex:"1 1 200px",minWidth:0}} />
                 <Select value={restF.meal} onChange={e=>setRestF(p=>({...p,meal:e.target.value}))} style={{width:100,flexShrink:0}}>
                   <option value="dinner">Dinner</option><option value="lunch">Lunch</option><option value="brunch">Brunch</option>
                 </Select>
-                <Btn c="green" onClick={addRest} disabled={looking} style={{flexShrink:0}}>{looking?"🔍 Looking up…":"+ Add"}</Btn>
+                <Btn c="gold" onClick={findRest} disabled={looking} style={{flexShrink:0}}>{looking?"🔍 Searching…":"🔍 Find"}</Btn>
+                <Btn c="green" onClick={addRest} style={{flexShrink:0}}>+ Add</Btn>
               </div>
-              {looking && <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#F2CC8F",marginTop:8,textAlign:"center",animation:"pulse 1.5s infinite"}}>✨ Researching "{restF.name}" — filling in hours, area, description, tips…</div>}
+              {looking && <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#F2CC8F",marginTop:8,textAlign:"center",animation:"pulse 1.5s infinite"}}>✨ Searching for "{restF.name}" in Paris…</div>}
+              {lookErr && <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#E07A5F",marginTop:8,textAlign:"center"}}>{lookErr}</div>}
+              {(restF.area||restF.hours||restF.desc) && (
+                <div style={{marginTop:10,borderTop:"1px solid #222",paddingTop:10}}>
+                  <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#81B29A",marginBottom:8,textTransform:"uppercase",letterSpacing:"1px"}}>✓ Found — review and edit, then hit + Add</div>
+                  <div className="grid-2col" style={{gap:6,marginBottom:6}}>
+                    <div><div style={S.fl}>Area</div><Input value={restF.area||""} onChange={e=>setRestF(p=>({...p,area:e.target.value}))} /></div>
+                    <div><div style={S.fl}>Phone</div><Input value={restF.phone||""} onChange={e=>setRestF(p=>({...p,phone:e.target.value}))} /></div>
+                    <div><div style={S.fl}>Hours</div><Input value={restF.hours||""} onChange={e=>setRestF(p=>({...p,hours:e.target.value}))} /></div>
+                    <div><div style={S.fl}>Duration (min)</div><Input value={restF.duration||""} onChange={e=>setRestF(p=>({...p,duration:e.target.value}))} /></div>
+                  </div>
+                  <div style={{marginBottom:6}}><div style={S.fl}>Description</div><TextArea value={restF.desc||""} onChange={e=>setRestF(p=>({...p,desc:e.target.value}))} /></div>
+                  <div><div style={S.fl}>Insider Tip</div><Input value={restF.tip||""} onChange={e=>setRestF(p=>({...p,tip:e.target.value}))} /></div>
+                </div>
+              )}
             </div>
             {restaurants.length===0 ? (
               <div style={{textAlign:"center",padding:"50px 20px",border:"1px dashed #333",borderRadius:12,color:"#555"}}>
