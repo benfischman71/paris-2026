@@ -561,11 +561,11 @@ function App() {
               <span style={{opacity:0.7}}>🙋</span> {getVotes(item.id).join(", ")}
             </div>}
             <div style={{marginTop:10,display:"flex",flexDirection:"column",gap:8}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                <PriBadge id={item.id} />
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:10}}>
                 <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#555"}}>~{fmtDur(item.duration||60)}</span>
               </div>
-              <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <div style={{display:"flex",alignItems:"center",gap:6,marginTop:6}}>
+                <PriBadge id={item.id} small />
                 <Btn style={{flex:1,justifyContent:"center",fontSize:11,background:myVote(item.id)?"#F2CC8F22":"transparent",borderColor:myVote(item.id)?"#F2CC8F":"#333",color:myVote(item.id)?"#F2CC8F":"#e8e0d4"}} onClick={e=>{e.stopPropagation();toggleVote(item.id);}}>
                   {myVote(item.id)?"★":"☆"} {getVotes(item.id).length||""}
                 </Btn>
@@ -807,17 +807,15 @@ function App() {
                       {getVotes(r.id).length>0 && <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#F2CC8F",marginTop:4,display:"flex",flexWrap:"wrap",gap:4,alignItems:"center"}}>
                         <span style={{opacity:0.7}}>🙋</span> {getVotes(r.id).join(", ")}
                       </div>}
-                      <div style={{marginTop:10,display:"flex",flexDirection:"column",gap:8}}>
-                        <PriBadge id={r.id} />
-                        <div style={{display:"flex",alignItems:"center",gap:6}}>
-                          <Btn style={{flex:1,justifyContent:"center",fontSize:11,background:myVote(r.id)?"#F2CC8F22":"transparent",borderColor:myVote(r.id)?"#F2CC8F":"#333",color:myVote(r.id)?"#F2CC8F":"#e8e0d4"}} onClick={e=>{e.stopPropagation();toggleVote(r.id);}}>
-                            {myVote(r.id)?"★":"☆"} {getVotes(r.id).length||""}
-                          </Btn>
-                          {!isEd && <Btn style={{flex:1,justifyContent:"center",fontSize:11}} onClick={e=>{e.stopPropagation();setEditId(r.id);setEditD({area:r.area,phone:r.phone,hours:r.hours});}}>✎ Edit</Btn>}
-                          {sc ? <Btn style={{flex:1,justifyContent:"center",fontSize:11,background:"#1a1a1a",borderColor:"#81B29A",color:"#81B29A"}} onClick={e=>e.stopPropagation()}>✓ {si}</Btn>
-                            : <Btn style={{flex:1,justifyContent:"center",fontSize:11}} onClick={e=>{e.stopPropagation();setSched({...r,category:"restaurant"});}}>📅 Schedule</Btn>}
-                          <Btn style={{flex:1,justifyContent:"center",fontSize:11,color:"#E07A5F",borderColor:"#E07A5F33"}} onClick={e=>{e.stopPropagation();if(window.confirm(`Remove "${r.name}"?`))rmItem(r.id,"restaurant");}}>✕</Btn>
-                        </div>
+                      <div style={{display:"flex",alignItems:"center",gap:6,marginTop:10}}>
+                        <PriBadge id={r.id} small />
+                        <Btn style={{flex:1,justifyContent:"center",fontSize:11,background:myVote(r.id)?"#F2CC8F22":"transparent",borderColor:myVote(r.id)?"#F2CC8F":"#333",color:myVote(r.id)?"#F2CC8F":"#e8e0d4"}} onClick={e=>{e.stopPropagation();toggleVote(r.id);}}>
+                          {myVote(r.id)?"★":"☆"} {getVotes(r.id).length||""}
+                        </Btn>
+                        {!isEd && <Btn style={{flex:1,justifyContent:"center",fontSize:11}} onClick={e=>{e.stopPropagation();setEditId(r.id);setEditD({area:r.area,phone:r.phone,hours:r.hours});}}>✎ Edit</Btn>}
+                        {sc ? <Btn style={{flex:1,justifyContent:"center",fontSize:11,background:"#1a1a1a",borderColor:"#81B29A",color:"#81B29A"}} onClick={e=>e.stopPropagation()}>✓ {si}</Btn>
+                          : <Btn style={{flex:1,justifyContent:"center",fontSize:11}} onClick={e=>{e.stopPropagation();setSched({...r,category:"restaurant"});}}>📅 Schedule</Btn>}
+                        <Btn style={{flex:1,justifyContent:"center",fontSize:11,color:"#E07A5F",borderColor:"#E07A5F33"}} onClick={e=>{e.stopPropagation();if(window.confirm(`Remove "${r.name}"?`))rmItem(r.id,"restaurant");}}>✕</Btn>
                       </div>
                     </div>
                   );
