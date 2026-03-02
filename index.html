@@ -260,6 +260,7 @@ function App() {
   const [editId, setEditId] = useState(null);
   const [editD, setEditD] = useState({});
   const [votes, setVotes] = useState({});
+  const [priorities, setPriorities] = useState({});
   const [me, setMe] = useState(localStorage.getItem("paris_me")||"");
   const [showWho, setShowWho] = useState(false);
 
@@ -292,7 +293,7 @@ function App() {
       const [tripRow, actRow] = await Promise.all([db.current.get("trip_details"), db.current.get("activities")]);
       if (!tripRow) {
         await db.current.set("trip_details", { travelers:D_TRAVELERS, flights:D_FLIGHTS, hotel:{name:"",address:"",phone:"",conf:"",notes:""}, transport:[{id:"tr1",label:"Airport → Hotel (Arrival)",details:"",notes:""},{id:"tr2",label:"Hotel → Airport (Departure)",details:"",notes:""}] });
-        await db.current.set("activities", { museums:D_MUSEUMS, wwii:D_WWII, misc:D_MISC, restaurants:D_RESTAURANTS, cal:{}, votes:{} });
+        await db.current.set("activities", { museums:D_MUSEUMS, wwii:D_WWII, misc:D_MISC, restaurants:D_RESTAURANTS, cal:{}, votes:{}, priorities:{} });
       } else {
         const d = tripRow.value;
         if (d.travelers) setTravelers(d.travelers);
@@ -308,7 +309,7 @@ function App() {
         if (d.misc) setMisc(d.misc);
         if (d.restaurants) setRestaurants(d.restaurants);
         if (d.cal) setCal(d.cal);
-        if (d.votes) setVotes(d.votes);
+        if (d.votes) setVotes(d.votes); if (d.priorities) setPriorities(d.priorities);
         lastFetch.current.act = actRow.updated_at;
       }
       setConnected(true);
@@ -346,7 +347,7 @@ function App() {
           if (d.misc) setMisc(d.misc);
           if (d.restaurants) setRestaurants(d.restaurants);
           if (d.cal) setCal(d.cal);
-          if (d.votes) setVotes(d.votes);
+          if (d.votes) setVotes(d.votes); if (d.priorities) setPriorities(d.priorities);
           lastFetch.current.act = row.updated_at;
           changed = true;
         }
@@ -363,7 +364,7 @@ function App() {
       try {
         const [ok1, ok2] = await Promise.all([
           db.current.set("trip_details", { travelers, flights, hotel, transport }),
-          db.current.set("activities", { museums, wwii, misc, restaurants, cal, votes }),
+          db.current.set("activities", { museums, wwii, misc, restaurants, cal, votes, priorities }),
         ]);
         if (ok1) { const r = await db.current.getUpdatedAt("trip_details"); if(r) lastFetch.current.trip = r; }
         if (ok2) { const r = await db.current.getUpdatedAt("activities"); if(r) lastFetch.current.act = r; }
@@ -371,17 +372,17 @@ function App() {
       } catch(e) { console.log("Save error:", e); }
     }, 800);
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
-  }, [travelers, flights, hotel, transport, museums, wwii, misc, restaurants, cal, votes]);
+  }, [travelers, flights, hotel, transport, museums, wwii, misc, restaurants, cal, votes, priorities]);
 
   const resetData = async () => {
     if (!window.confirm("Reset ALL trip data to defaults? This cannot be undone.")) return;
     if (db.current) {
       await db.current.set("trip_details", { travelers:D_TRAVELERS, flights:D_FLIGHTS, hotel:{name:"",address:"",phone:"",conf:"",notes:""}, transport:[{id:"tr1",label:"Airport → Hotel (Arrival)",details:"",notes:""},{id:"tr2",label:"Hotel → Airport (Departure)",details:"",notes:""}] });
-      await db.current.set("activities", { museums:D_MUSEUMS, wwii:D_WWII, misc:D_MISC, restaurants:D_RESTAURANTS, cal:{}, votes:{} });
+      await db.current.set("activities", { museums:D_MUSEUMS, wwii:D_WWII, misc:D_MISC, restaurants:D_RESTAURANTS, cal:{}, votes:{}, priorities:{} });
     }
     setTravelers(D_TRAVELERS); setFlights(D_FLIGHTS); setHotel({name:"",address:"",phone:"",conf:"",notes:""});
     setTransport([{id:"tr1",label:"Airport → Hotel (Arrival)",details:"",notes:""},{id:"tr2",label:"Hotel → Airport (Departure)",details:"",notes:""}]);
-    setMuseums(D_MUSEUMS); setWwii(D_WWII); setMisc(D_MISC); setRestaurants(D_RESTAURANTS); setCal({}); setVotes({});
+    setMuseums(D_MUSEUMS); setWwii(D_WWII); setMisc(D_MISC); setRestaurants(D_RESTAURANTS); setCal({}); setVotes({}); setPriorities({});
   };
 
   // ===== LOGIC =====
@@ -460,6 +461,25 @@ function App() {
   const myVote = (itemId) => me && (votes[itemId] || []).includes(me);
   const pickMe = (name) => { setMe(name); localStorage.setItem("paris_me", name); setShowWho(false); };
 
+  // ===== PRIORITIES =====
+  const PRI = {must:{label:"Must Do",icon:"🔥",color:"#E07A5F",sort:1},want:{label:"Want To",icon:"⭐",color:"#F2CC8F",sort:2},iftime:{label:"If Time",icon:"💭",color:"#7B8CDE",sort:3}};
+  const getPri = (id) => priorities[id] || null;
+  const cyclePri = (id) => {
+    setPriorities(p => {
+      const cur = p[id];
+      if (!cur) return {...p, [id]:"must"};
+      if (cur==="must") return {...p, [id]:"want"};
+      if (cur==="want") return {...p, [id]:"iftime"};
+      const n = {...p}; delete n[id]; return n;
+    });
+  };
+  const PriBadge = ({id, small}) => {
+    const pri = getPri(id);
+    if (!pri) return <span onClick={e=>{e.stopPropagation();cyclePri(id);}} style={{fontFamily:"'DM Sans',sans-serif",fontSize:small?9:10,color:"#555",cursor:"pointer",padding:small?"1px 5px":"2px 8px",borderRadius:10,border:"1px solid #333",whiteSpace:"nowrap"}}>Set priority</span>;
+    const p = PRI[pri];
+    return <span onClick={e=>{e.stopPropagation();cyclePri(id);}} style={{fontFamily:"'DM Sans',sans-serif",fontSize:small?9:10,fontWeight:600,color:p.color,cursor:"pointer",padding:small?"1px 5px":"2px 8px",borderRadius:10,background:`${p.color}18`,border:`1px solid ${p.color}33`,whiteSpace:"nowrap"}} title="Click to cycle: Must Do → Want To → If Time → Clear">{p.icon} {p.label}</span>;
+  };
+
   // ===== AI LOOKUP =====
   const [lookErr, setLookErr] = useState("");
   const lookupPlace = async (name, type) => {
@@ -514,7 +534,10 @@ function App() {
               <span style={{opacity:0.7}}>🙋</span> {getVotes(item.id).join(", ")}
             </div>}
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:10}}>
-              <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#555"}}>~{fmtDur(item.duration||60)}</span>
+              <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#555"}}>~{fmtDur(item.duration||60)}</span>
+                <PriBadge id={item.id} small />
+              </div>
               <div className="card-actions">
                 <Btn style={{fontSize:10,background:myVote(item.id)?"#F2CC8F22":"transparent",borderColor:myVote(item.id)?"#F2CC8F":"#333",color:myVote(item.id)?"#F2CC8F":"#e8e0d4"}} onClick={e=>{e.stopPropagation();toggleVote(item.id);}}>
                   {myVote(item.id)?"★":"☆"} {getVotes(item.id).length||""}
@@ -751,7 +774,9 @@ function App() {
                       {getVotes(r.id).length>0 && <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#F2CC8F",marginTop:4,display:"flex",flexWrap:"wrap",gap:4,alignItems:"center"}}>
                         <span style={{opacity:0.7}}>🙋</span> {getVotes(r.id).join(", ")}
                       </div>}
-                      <div className="card-actions" style={{marginTop:10}}>
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:10}}>
+                        <PriBadge id={r.id} small />
+                        <div className="card-actions">
                         <Btn style={{fontSize:10,background:myVote(r.id)?"#F2CC8F22":"transparent",borderColor:myVote(r.id)?"#F2CC8F":"#333",color:myVote(r.id)?"#F2CC8F":"#e8e0d4"}} onClick={e=>{e.stopPropagation();toggleVote(r.id);}}>
                           {myVote(r.id)?"★":"☆"} {getVotes(r.id).length||""}
                         </Btn>
@@ -759,6 +784,7 @@ function App() {
                         {sc ? <Btn style={{fontSize:10,background:"#1a1a1a",borderColor:"#81B29A",color:"#81B29A"}} onClick={e=>e.stopPropagation()}>✓ {si}</Btn>
                           : <Btn style={{fontSize:10}} onClick={e=>{e.stopPropagation();setSched({...r,category:"restaurant"});}}>+ Schedule</Btn>}
                         <Btn style={{fontSize:10,color:"#E07A5F",borderColor:"#E07A5F33"}} onClick={e=>{e.stopPropagation();if(window.confirm(`Remove "${r.name}"?`))rmItem(r.id,"restaurant");}}>✕</Btn>
+                      </div>
                       </div>
                     </div>
                   );
@@ -784,19 +810,25 @@ function App() {
             {l:"WWII Sites",items:wwii.map(i=>({...i,category:"wwii"})),c:"#E07A5F",ic:"🎖"},
             {l:"Experiences",items:misc.map(i=>({...i,category:"misc"})),c:"#7B8CDE",ic:"📍"},
           ].map(sec => {
-            const sorted = [...sec.items].sort((a,b)=>(getVotes(b.id).length)-(getVotes(a.id).length));
-            const voted = sorted.filter(i=>getVotes(i.id).length>0);
-            const unvoted = sorted.filter(i=>getVotes(i.id).length===0);
+            const priSort = (id) => { const p=getPri(id); return p?PRI[p].sort:4; };
+            const sorted = [...sec.items].sort((a,b)=>{
+              const pa=priSort(a.id), pb=priSort(b.id);
+              if(pa!==pb) return pa-pb;
+              return (getVotes(b.id).length)-(getVotes(a.id).length);
+            });
+            const hasAny = sorted.some(i=>getVotes(i.id).length>0 || getPri(i.id));
+            const active = sorted.filter(i=>getVotes(i.id).length>0 || getPri(i.id));
+            const inactive = sorted.filter(i=>getVotes(i.id).length===0 && !getPri(i.id));
             return (
               <div key={sec.l} style={{marginBottom:28}}>
                 <h3 style={{fontSize:17,fontWeight:600,marginBottom:12}}>
                   {sec.ic} {sec.l}
                   <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#555",fontWeight:400,marginLeft:8}}>
-                    {voted.length} voted · {unvoted.length} unvoted
+                    {active.length} ranked · {inactive.length} unranked
                   </span>
                 </h3>
-                {voted.length>0 && <div style={{marginBottom:12}}>
-                  {voted.map(item => {
+                {active.length>0 && <div style={{marginBottom:12}}>
+                  {active.map(item => {
                     const v=getVotes(item.id); const mv=myVote(item.id); const cc=CC[item.category];
                     return (
                       <div key={item.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:"#141414",border:"1px solid #222",borderRadius:10,marginBottom:6,borderLeft:`3px solid ${cc.accent}`}}>
@@ -804,30 +836,32 @@ function App() {
                         <div style={{flex:1,minWidth:0}}>
                           <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                             <span style={{fontSize:14,fontWeight:600}}>{item.icon?`${item.icon} `:""}{item.name}</span>
+                            <PriBadge id={item.id} small />
                             {item.meal && <span onClick={e=>{e.stopPropagation();toggleMeal(item.id);}} style={{display:"inline-block",padding:"2px 8px",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.8px",background:`${item.meal==="dinner"?"#E07A5F":item.meal==="brunch"?"#D4A574":"#81B29A"}22`,color:item.meal==="dinner"?"#E07A5F":item.meal==="brunch"?"#D4A574":"#81B29A",cursor:"pointer",border:`1px solid ${item.meal==="dinner"?"#E07A5F":item.meal==="brunch"?"#D4A574":"#81B29A"}44`}}>{item.meal} ⇄</span>}
                             {item.area && <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#666"}}>{item.area}</span>}
                           </div>
-                          <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#F2CC8F",marginTop:3}}>
+                          {v.length>0 && <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#F2CC8F",marginTop:3}}>
                             {v.map((name,i)=><span key={name} style={{display:"inline-block",padding:"1px 6px",background:"#F2CC8F15",borderRadius:8,marginRight:4,fontSize:10}}>{name}</span>)}
-                          </div>
+                          </div>}
                         </div>
-                        <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:20,fontWeight:300,color:sec.c,flexShrink:0}}>{v.length}</div>
+                        <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:20,fontWeight:300,color:sec.c,flexShrink:0}}>{v.length||""}</div>
                       </div>
                     );
                   })}
                 </div>}
-                {unvoted.length>0 && (
+                {inactive.length>0 && (
                   <details style={{marginTop:4}}>
                     <summary style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#555",cursor:"pointer",padding:"6px 0"}}>
-                      {unvoted.length} more with no votes yet
+                      {inactive.length} more with no ranking yet
                     </summary>
                     <div style={{marginTop:6}}>
-                      {unvoted.map(item => {
+                      {inactive.map(item => {
                         const cc=CC[item.category];
                         return (
                           <div key={item.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",background:"#111",borderRadius:8,marginBottom:4,opacity:0.7,borderLeft:`3px solid ${cc.accent}33`}}>
                             <div onClick={()=>toggleVote(item.id)} style={{cursor:"pointer",fontSize:16,color:"#444",flexShrink:0}}>☆</div>
                             <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,flex:1}}>{item.icon?`${item.icon} `:""}{item.name}</span>
+                            <PriBadge id={item.id} small />
                             {item.meal && <span onClick={e=>{e.stopPropagation();toggleMeal(item.id);}} style={{display:"inline-block",padding:"2px 8px",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.8px",background:`${item.meal==="dinner"?"#E07A5F":item.meal==="brunch"?"#D4A574":"#81B29A"}22`,color:item.meal==="dinner"?"#E07A5F":item.meal==="brunch"?"#D4A574":"#81B29A",cursor:"pointer",border:`1px solid ${item.meal==="dinner"?"#E07A5F":item.meal==="brunch"?"#D4A574":"#81B29A"}44`}}>{item.meal} ⇄</span>}
                           </div>
                         );
@@ -840,19 +874,24 @@ function App() {
           })}
           {/* TOP PICKS SUMMARY */}
           {(() => {
-            const allWithVotes = allItems.filter(i=>getVotes(i.id).length>0).sort((a,b)=>getVotes(b.id).length-getVotes(a.id).length);
-            if (allWithVotes.length === 0) return null;
+            const allRanked = allItems.filter(i=>getVotes(i.id).length>0 || getPri(i.id)).sort((a,b)=>{
+              const pa=getPri(a.id)?PRI[getPri(a.id)].sort:4, pb=getPri(b.id)?PRI[getPri(b.id)].sort:4;
+              if(pa!==pb) return pa-pb;
+              return getVotes(b.id).length-getVotes(a.id).length;
+            });
+            if (allRanked.length === 0) return null;
             return (
               <div style={{marginTop:12,padding:16,background:"#111",borderRadius:10,border:"1px solid #F2CC8F33"}}>
                 <h3 style={{fontSize:16,fontWeight:600,color:"#F2CC8F",marginBottom:10}}>🏆 Top Picks Across Everything</h3>
-                {allWithVotes.slice(0,10).map((item,i) => {
-                  const v=getVotes(item.id); const cc=CC[item.category];
+                {allRanked.slice(0,15).map((item,i) => {
+                  const v=getVotes(item.id); const cc=CC[item.category]; const pri=getPri(item.id);
                   return (
                     <div key={item.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid #1a1a1a",fontFamily:"'DM Sans',sans-serif",fontSize:12}}>
                       <span style={{color:"#F2CC8F",fontWeight:600,width:20}}>{i+1}.</span>
+                      {pri && <span style={{fontSize:12}}>{PRI[pri].icon}</span>}
                       <span style={{flex:1}}>{item.icon?`${item.icon} `:""}{item.name}</span>
                       <Tag color={cc.accent}>{item.category==="restaurant"?(item.meal||"food"):item.category==="wwii"?"wwii":item.category==="misc"?"exp":"museum"}</Tag>
-                      <span style={{color:"#F2CC8F",fontWeight:600}}>{v.length} vote{v.length!==1?"s":""}</span>
+                      {v.length>0 && <span style={{color:"#F2CC8F",fontWeight:600}}>{v.length} vote{v.length!==1?"s":""}</span>}
                     </div>
                   );
                 })}
@@ -949,6 +988,15 @@ function App() {
             <Btn style={{width:"100%",justifyContent:"center",padding:"10px 0",fontSize:13,background:myVote(sel.id)?"#F2CC8F22":"transparent",borderColor:myVote(sel.id)?"#F2CC8F":"#333",color:myVote(sel.id)?"#F2CC8F":"#e8e0d4"}} onClick={()=>toggleVote(sel.id)}>
               {myVote(sel.id)?"★ You want to do this":"☆ I want to do this"}
             </Btn>
+          </div>
+          <div style={{marginTop:8}}>
+            <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:"1px",marginBottom:6}}>Priority</div>
+            <div style={{display:"flex",gap:6}}>
+              {Object.entries(PRI).map(([key,p])=>{
+                const active = getPri(sel.id)===key;
+                return <span key={key} onClick={()=>setPriorities(pr=>{if(pr[sel.id]===key){const n={...pr};delete n[sel.id];return n;}return{...pr,[sel.id]:key};})} style={{flex:1,textAlign:"center",padding:"8px 0",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,cursor:"pointer",background:active?`${p.color}22`:"#111",color:active?p.color:"#555",border:`1px solid ${active?p.color:"#333"}`,transition:"all 0.2s"}}>{p.icon} {p.label}</span>;
+              })}
+            </div>
           </div>
         </Modal>
       )}
