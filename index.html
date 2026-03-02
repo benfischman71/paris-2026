@@ -266,8 +266,7 @@ function App() {
   // ===== SUPABASE STATE =====
   const SB_URL = "https://mztgaqeyluxpyvaqnyno.supabase.co";
   const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16dGdhcWV5bHV4cHl2YXFueW5vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzOTQxOTYsImV4cCI6MjA4Nzk3MDE5Nn0.QZJb9ki0pbP31Lfop4aY9kfRF2uD6pKn80HdSSgpuv4";
-  const [aiKey, setAiKey] = useState(localStorage.getItem("paris_ai_key")||"");
-  const [setupAiKey, setSetupAiKey] = useState("");
+  const AI_KEY = "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";
   const [looking, setLooking] = useState(false);
   const [connected, setConnected] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -393,7 +392,7 @@ function App() {
   const schInfo = (id) => { const e=Object.values(cal).find(e=>e.id===id); return e ? `${DAYS.find(d=>d.key===e.day)?.short} @ ${e.time}` : null; };
   const addItem = async (cat) => {
     if(!addF.name.trim()) return;
-    const result = aiKey ? await lookupPlace(addF.name, cat) : null;
+    const result = AI_KEY ? await lookupPlace(addF.name, cat) : null;
     const r = result || {};
     const item = {id:`${cat[0]}${Date.now()}`,name:r.name||addF.name.trim(),hours:r.hours||addF.hours,area:r.area||addF.area,duration:parseInt(r.duration||addF.duration)||60,desc:r.desc||addF.desc,tip:r.tip||addF.tip,lat:r.lat||48.856,lng:r.lng||2.35,closed:r.closed||""};
     if(cat==="museum") setMuseums(p=>[...p,item]); else if(cat==="wwii") setWwii(p=>[...p,item]); else setMisc(p=>[...p,{...item,icon:addF.icon||"📌"}]);
@@ -401,7 +400,7 @@ function App() {
   };
   const addRest = async () => {
     if(!restF.name.trim()) return;
-    const result = aiKey ? await lookupPlace(restF.name, "restaurant") : null;
+    const result = AI_KEY ? await lookupPlace(restF.name, "restaurant") : null;
     const r = result || {};
     setRestaurants(p=>[...p,{id:`r${Date.now()}`,name:r.name||restF.name.trim(),meal:r.meal||restF.meal,hours:r.hours||"",area:r.area||"",phone:r.phone||"",duration:parseInt(r.duration)||(restF.meal==="brunch"?90:restF.meal==="lunch"?90:120),desc:r.desc||"",tip:r.tip||"",lat:r.lat||48.856,lng:r.lng||2.352}]);
     setRestF({name:"",meal:"lunch",hours:"",area:"",phone:"",desc:"",tip:""});
@@ -453,7 +452,7 @@ function App() {
 
   // ===== AI LOOKUP =====
   const lookupPlace = async (name, type) => {
-    if (!aiKey) { alert("Add your Anthropic API key in ☁ Settings to enable auto-lookup."); return null; }
+    if (!AI_KEY) { alert("Add your Anthropic API key in ☁ Settings to enable auto-lookup."); return null; }
     if (!name.trim()) return null;
     setLooking(true);
     try {
@@ -463,7 +462,7 @@ function App() {
         : `Look up "${name}" in Paris, France — it's a ${type==="museum"?"museum or cultural site":type==="wwii"?"WWII historical site":"attraction or experience"}. Search the web for current info. Return ONLY a valid JSON object (no markdown, no backticks, no extra text) with: {"name":"official name","hours":"opening hours","closed":"day closed or None","area":"arrondissement/area","duration":estimated_visit_minutes_as_number,"desc":"2-3 sentence description","tip":"one insider tip","lat":latitude_number,"lng":longitude_number}`;
       const r = await fetch("https://api.anthropic.com/v1/messages", {
         method:"POST",
-        headers:{"Content-Type":"application/json","x-api-key":aiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+        headers:{"Content-Type":"application/json","x-api-key":AI_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
         body:JSON.stringify({model:"claude-sonnet-4-5-20250929",max_tokens:1024,tools:[{type:"web_search_20250305",name:"web_search",max_uses:3}],messages:[{role:"user",content:prompt}]})
       });
       const data = await r.json();
@@ -532,7 +531,7 @@ function App() {
         </div>
         <div className="hdr-nav">
           {connected && fmtSync() && <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#81B29A",opacity:0.8}}>{fmtSync()}</span>}
-          <span onClick={()=>{setShowSetup(true);setSetupAiKey(aiKey);}} style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#81B29A",cursor:"pointer",padding:"4px 8px",borderRadius:10,border:"1px solid #81B29A33"}}>
+          <span onClick={()=>setShowSetup(true)} style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#81B29A",cursor:"pointer",padding:"4px 8px",borderRadius:10,border:"1px solid #81B29A33"}}>
             ⚙
           </span>
           <span onClick={()=>setShowWho(true)} style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:me?"#F2CC8F":"#E07A5F",cursor:"pointer",padding:"4px 8px",borderRadius:10,border:`1px solid ${me?"#F2CC8F33":"#E07A5F33"}`}}>
@@ -987,32 +986,19 @@ function App() {
       {/* SETTINGS MODAL */}
       {showSetup && (
         <Modal onClose={()=>setShowSetup(false)}>
-          <h3 style={{fontSize:20,fontWeight:600,marginBottom:4}}>⚙ Settings</h3>
+          <h3 style={{fontSize:20,fontWeight:600,marginBottom:16}}>⚙ Settings</h3>
 
-          {/* AI LOOKUP */}
-          <div style={{marginBottom:20,padding:14,background:"#111",borderRadius:10,border:"1px solid #F2CC8F33"}}>
-            <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,color:"#F2CC8F",marginBottom:8}}>🔍 AI Auto-Fill (Anthropic API)</div>
-            <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#666",marginBottom:10,lineHeight:1.5}}>When you add a restaurant or activity, Claude looks it up and fills in hours, area, description, and tips.</p>
-            {aiKey ? (
-              <div>
-                <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#81B29A",marginBottom:8}}>✓ API key saved ({aiKey.slice(0,12)}…)</div>
-                <Btn style={{fontSize:10,color:"#E07A5F",borderColor:"#E07A5F33"}} onClick={()=>{setAiKey("");localStorage.removeItem("paris_ai_key");setSetupAiKey("");}}>Remove key</Btn>
-              </div>
-            ) : (
-              <div>
-                <Input placeholder="sk-ant-…" value={setupAiKey} onChange={e=>setSetupAiKey(e.target.value)} />
-                <div style={{marginTop:8}}>
-                  <Btn c="gold" onClick={()=>{if(setupAiKey.trim()){setAiKey(setupAiKey.trim());localStorage.setItem("paris_ai_key",setupAiKey.trim());}}}>Save Key</Btn>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* CLOUD STATUS */}
-          <div style={{padding:14,background:"#111",borderRadius:10,border:"1px solid #81B29A33"}}>
+          <div style={{padding:14,background:"#111",borderRadius:10,border:"1px solid #81B29A33",marginBottom:12}}>
             <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,color:"#81B29A",marginBottom:8}}>☁ Cloud Sync</div>
             <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:connected?"#81B29A":"#E07A5F",lineHeight:1.5}}>
               {connected ? "✓ Connected — all changes sync automatically across everyone's devices." : "Connecting…"}
+            </div>
+          </div>
+
+          <div style={{padding:14,background:"#111",borderRadius:10,border:"1px solid #F2CC8F33"}}>
+            <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,color:"#F2CC8F",marginBottom:8}}>🔍 AI Auto-Fill</div>
+            <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#81B29A",lineHeight:1.5}}>
+              ✓ Active — when you add a restaurant or activity, details are filled in automatically.
             </div>
           </div>
         </Modal>
