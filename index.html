@@ -266,6 +266,9 @@ function App() {
   // ===== SUPABASE STATE =====
   const [sbUrl, setSbUrl] = useState(localStorage.getItem("paris_sb_url")||"");
   const [sbKey, setSbKey] = useState(localStorage.getItem("paris_sb_key")||"");
+  const [aiKey, setAiKey] = useState(localStorage.getItem("paris_ai_key")||"");
+  const [setupAiKey, setSetupAiKey] = useState("");
+  const [looking, setLooking] = useState(false);
   const [connected, setConnected] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [lastSync, setLastSync] = useState(null);
@@ -423,16 +426,20 @@ function App() {
   const rmCal = (k) => setCal(p=>{ const c={...p}; delete c[k]; return c; });
   const isSch = (id) => Object.values(cal).some(e=>e.id===id);
   const schInfo = (id) => { const e=Object.values(cal).find(e=>e.id===id); return e ? `${DAYS.find(d=>d.key===e.day)?.short} @ ${e.time}` : null; };
-  const addItem = (cat) => {
+  const addItem = async (cat) => {
     if(!addF.name.trim()) return;
-    const item = {id:`${cat[0]}${Date.now()}`,name:addF.name.trim(),hours:addF.hours,area:addF.area,duration:parseInt(addF.duration)||60,desc:addF.desc,tip:addF.tip,lat:48.856,lng:2.35};
+    const result = aiKey ? await lookupPlace(addF.name, cat) : null;
+    const r = result || {};
+    const item = {id:`${cat[0]}${Date.now()}`,name:r.name||addF.name.trim(),hours:r.hours||addF.hours,area:r.area||addF.area,duration:parseInt(r.duration||addF.duration)||60,desc:r.desc||addF.desc,tip:r.tip||addF.tip,lat:r.lat||48.856,lng:r.lng||2.35,closed:r.closed||""};
     if(cat==="museum") setMuseums(p=>[...p,item]); else if(cat==="wwii") setWwii(p=>[...p,item]); else setMisc(p=>[...p,{...item,icon:addF.icon||"📌"}]);
     setAddF({name:"",hours:"",area:"",duration:"60",desc:"",tip:"",icon:""}); setAddOpen(false);
   };
-  const addRest = () => {
+  const addRest = async () => {
     if(!restF.name.trim()) return;
-    setRestaurants(p=>[...p,{id:`r${Date.now()}`,name:restF.name.trim(),meal:restF.meal,hours:"",area:"",phone:"",duration:restF.meal==="brunch"?90:restF.meal==="lunch"?90:120,desc:"",lat:48.856,lng:2.352}]);
-    setRestF({name:"",meal:"lunch"});
+    const result = aiKey ? await lookupPlace(restF.name, "restaurant") : null;
+    const r = result || {};
+    setRestaurants(p=>[...p,{id:`r${Date.now()}`,name:r.name||restF.name.trim(),meal:r.meal||restF.meal,hours:r.hours||"",area:r.area||"",phone:r.phone||"",duration:parseInt(r.duration)||(restF.meal==="brunch"?90:restF.meal==="lunch"?90:120),desc:r.desc||"",tip:r.tip||"",lat:r.lat||48.856,lng:r.lng||2.352}]);
+    setRestF({name:"",meal:"lunch",hours:"",area:"",phone:"",desc:"",tip:""});
   };
   const rmItem = (id, cat) => {
     const fn = cat==="museum"?setMuseums:cat==="wwii"?setWwii:cat==="misc"?setMisc:setRestaurants;
@@ -474,6 +481,35 @@ function App() {
   const getVotes = (itemId) => votes[itemId] || [];
   const myVote = (itemId) => me && (votes[itemId] || []).includes(me);
   const pickMe = (name) => { setMe(name); localStorage.setItem("paris_me", name); setShowWho(false); };
+
+  // ===== AI LOOKUP =====
+  const lookupPlace = async (name, type) => {
+    if (!aiKey) { alert("Add your Anthropic API key in ☁ Settings to enable auto-lookup."); return null; }
+    if (!name.trim()) return null;
+    setLooking(true);
+    try {
+      const isRest = type === "restaurant";
+      const prompt = isRest
+        ? `Look up "${name}" restaurant in Paris, France. Search the web for current info. Return ONLY a valid JSON object (no markdown, no backticks, no extra text) with these fields: {"name":"official name","hours":"opening hours","area":"arrondissement/neighborhood","phone":"phone number or No phone","duration":estimated_meal_minutes_as_number,"desc":"2-3 sentence description of the food and vibe","tip":"one insider tip for visitors","meal":"dinner or lunch or brunch","lat":latitude_number,"lng":longitude_number}`
+        : `Look up "${name}" in Paris, France — it's a ${type==="museum"?"museum or cultural site":type==="wwii"?"WWII historical site":"attraction or experience"}. Search the web for current info. Return ONLY a valid JSON object (no markdown, no backticks, no extra text) with: {"name":"official name","hours":"opening hours","closed":"day closed or None","area":"arrondissement/area","duration":estimated_visit_minutes_as_number,"desc":"2-3 sentence description","tip":"one insider tip","lat":latitude_number,"lng":longitude_number}`;
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
+        method:"POST",
+        headers:{"Content-Type":"application/json","x-api-key":aiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+        body:JSON.stringify({model:"claude-sonnet-4-5-20250929",max_tokens:1024,tools:[{type:"web_search_20250305",name:"web_search",max_uses:3}],messages:[{role:"user",content:prompt}]})
+      });
+      const data = await r.json();
+      if (data.error) { console.log("API error:", data.error); setLooking(false); return null; }
+      const text = data.content?.filter(b=>b.type==="text").map(b=>b.text).join("") || "";
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        setLooking(false);
+        return parsed;
+      }
+    } catch(e) { console.log("Lookup error:", e); }
+    setLooking(false);
+    return null;
+  };
   const fmtSync = () => { if(!lastSync) return null; const s=Math.floor((Date.now()-lastSync.getTime())/1000); return s<5?"Synced ✓":s<60?`Synced ${s}s ago`:`Synced ${Math.floor(s/60)}m ago`; };
   const [,forceRender] = useState(0);
   useEffect(() => { const t=setInterval(()=>forceRender(n=>n+1),10000); return ()=>clearInterval(t); }, []);
@@ -527,8 +563,8 @@ function App() {
         </div>
         <div className="hdr-nav">
           {connected && fmtSync() && <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#81B29A",opacity:0.8}}>{fmtSync()}</span>}
-          <span onClick={()=>{setShowSetup(true);setSetupUrl(sbUrl);setSetupKey(sbKey);setSetupErr("");}} style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:connected?"#81B29A":"#E07A5F",cursor:"pointer",padding:"4px 8px",borderRadius:10,border:`1px solid ${connected?"#81B29A33":"#E07A5F33"}`}}>
-            {connected?"☁ Cloud":"⚙ Local"}
+          <span onClick={()=>{setShowSetup(true);setSetupUrl(sbUrl);setSetupKey(sbKey);setSetupAiKey(aiKey);setSetupErr("");}} style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:connected?"#81B29A":"#E07A5F",cursor:"pointer",padding:"4px 8px",borderRadius:10,border:`1px solid ${connected?"#81B29A33":"#E07A5F33"}`}}>
+            {connected?"☁ Cloud":"⚙ Setup"}
           </span>
           <span onClick={()=>setShowWho(true)} style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:me?"#F2CC8F":"#E07A5F",cursor:"pointer",padding:"4px 8px",borderRadius:10,border:`1px solid ${me?"#F2CC8F33":"#E07A5F33"}`}}>
             {me?`👤 ${me}`:"👤 Who?"}
@@ -641,18 +677,13 @@ function App() {
           {tab!=="restaurants" && addOpen && (
             <div style={{...S.ib,marginBottom:16,border:`1px solid ${CC[tab==="museums"?"museum":tab==="wwii"?"wwii":"misc"].accent}33`}}>
               <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,color:CC[tab==="museums"?"museum":tab==="wwii"?"wwii":"misc"].text,marginBottom:10}}>+ Add {tab==="museums"?"Museum":tab==="wwii"?"WWII Site":"Item"}</div>
-              <div className="grid-3col" style={{marginBottom:8}}>
-                <div><div style={S.fl}>Name *</div><Input value={addF.name} onChange={e=>setAddF(p=>({...p,name:e.target.value}))} placeholder="Name" /></div>
-                <div><div style={S.fl}>Area</div><Input value={addF.area} onChange={e=>setAddF(p=>({...p,area:e.target.value}))} placeholder="e.g. 5th Arr." /></div>
-                <div><div style={S.fl}>Duration (min)</div><Input value={addF.duration} onChange={e=>setAddF(p=>({...p,duration:e.target.value}))} /></div>
-              </div>
-              <div style={{marginBottom:8}}><div style={S.fl}>Hours</div><Input value={addF.hours} onChange={e=>setAddF(p=>({...p,hours:e.target.value}))} placeholder="Tue–Sun 10AM–6PM" /></div>
-              <div style={{marginBottom:8}}><div style={S.fl}>Description</div><TextArea value={addF.desc} onChange={e=>setAddF(p=>({...p,desc:e.target.value}))} placeholder="Brief description…" /></div>
-              <div style={{marginBottom:10}}><div style={S.fl}>Tip</div><Input value={addF.tip} onChange={e=>setAddF(p=>({...p,tip:e.target.value}))} placeholder="Insider tip…" /></div>
-              <div className="group-actions">
-                <Btn c={tab==="museums"?"gold":tab==="wwii"?"coral":"blue"} onClick={()=>addItem(tab==="museums"?"museum":tab==="wwii"?"wwii":"misc")}>Save</Btn>
+              <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
+                <Input value={addF.name} onChange={e=>setAddF(p=>({...p,name:e.target.value}))} placeholder={`Type a name — e.g. "${tab==="museums"?"Musée de la Vie Romantique":tab==="wwii"?"Resistance Museum":"Jardin des Plantes"}"`} onKeyDown={e=>e.key==="Enter"&&addItem(tab==="museums"?"museum":tab==="wwii"?"wwii":"misc")} style={{flex:1}} />
+                <Btn c={tab==="museums"?"gold":tab==="wwii"?"coral":"blue"} onClick={()=>addItem(tab==="museums"?"museum":tab==="wwii"?"wwii":"misc")} disabled={looking}>{looking?"🔍 Looking up…":"+ Add"}</Btn>
                 <Btn onClick={()=>setAddOpen(false)}>Cancel</Btn>
               </div>
+              {looking && <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#F2CC8F",textAlign:"center",animation:"pulse 1.5s infinite"}}>✨ Researching "{addF.name}" — filling in hours, area, description, tips…</div>}
+              {!aiKey && <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#555",textAlign:"center"}}>💡 Add an Anthropic API key in <span onClick={()=>{setShowSetup(true);setSetupUrl(sbUrl);setSetupKey(sbKey);setSetupAiKey(aiKey);setSetupErr("");}} style={{color:"#F2CC8F",cursor:"pointer",textDecoration:"underline"}}>☁ Settings</span> to auto-fill details</div>}
             </div>
           )}
           {tab!=="restaurants" && (
@@ -665,12 +696,16 @@ function App() {
           {tab==="wwii" && renderCards(wwii,"wwii")}
           {tab==="misc" && renderCards(misc,"misc")}
           {tab==="restaurants" && (<>
-            <div className="rest-add-bar" style={{marginBottom:18,background:"#141414",padding:12,borderRadius:12,border:"1px solid #222"}}>
-              <Input placeholder="Restaurant name…" value={restF.name} onChange={e=>setRestF(p=>({...p,name:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&addRest()} style={{flex:1}} />
-              <Select value={restF.meal} onChange={e=>setRestF(p=>({...p,meal:e.target.value}))} style={{width:100}}>
-                <option value="lunch">Lunch</option><option value="dinner">Dinner</option><option value="brunch">Brunch</option>
-              </Select>
-              <Btn c="green" onClick={addRest}>+ Add</Btn>
+            <div style={{marginBottom:18,background:"#141414",padding:12,borderRadius:12,border:"1px solid #222"}}>
+              <div className="rest-add-bar">
+                <Input placeholder="Restaurant name…" value={restF.name} onChange={e=>setRestF(p=>({...p,name:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&addRest()} style={{flex:1}} />
+                <Select value={restF.meal} onChange={e=>setRestF(p=>({...p,meal:e.target.value}))} style={{width:100}}>
+                  <option value="lunch">Lunch</option><option value="dinner">Dinner</option><option value="brunch">Brunch</option>
+                </Select>
+                <Btn c="green" onClick={addRest} disabled={looking}>{looking?"🔍 Looking up…":"+ Add"}</Btn>
+              </div>
+              {looking && <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#F2CC8F",marginTop:8,textAlign:"center",animation:"pulse 1.5s infinite"}}>✨ Researching "{restF.name}" — filling in hours, area, description, tips…</div>}
+              {!aiKey && <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#555",marginTop:6,textAlign:"center"}}>💡 Add an Anthropic API key in <span onClick={()=>{setShowSetup(true);setSetupUrl(sbUrl);setSetupKey(sbKey);setSetupAiKey(aiKey);setSetupErr("");}} style={{color:"#F2CC8F",cursor:"pointer",textDecoration:"underline"}}>☁ Settings</span> to auto-fill restaurant details</div>}
             </div>
             {restaurants.length===0 ? (
               <div style={{textAlign:"center",padding:"50px 20px",border:"1px dashed #333",borderRadius:12,color:"#555"}}>
@@ -973,13 +1008,37 @@ function App() {
         </Modal>
       )}
 
-      {/* SUPABASE SETUP MODAL */}
+      {/* SETTINGS MODAL */}
       {showSetup && (
         <Modal onClose={()=>setShowSetup(false)}>
-          <h3 style={{fontSize:20,fontWeight:600,marginBottom:4}}>☁ Cloud Sync</h3>
+          <h3 style={{fontSize:20,fontWeight:600,marginBottom:4}}>⚙ Settings</h3>
           <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#888",marginBottom:16,lineHeight:1.6}}>
-            Connect to Supabase so all 10 travelers can edit the same trip from any device. Changes sync every 5 seconds.
+            Cloud sync + AI auto-fill for new places.
           </p>
+
+          {/* AI LOOKUP */}
+          <div style={{marginBottom:20,padding:14,background:"#111",borderRadius:10,border:"1px solid #F2CC8F33"}}>
+            <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,color:"#F2CC8F",marginBottom:8}}>🔍 AI Auto-Fill (Anthropic API)</div>
+            <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#666",marginBottom:10,lineHeight:1.5}}>When you add a restaurant or activity, Claude looks it up and fills in hours, area, description, and tips.</p>
+            {aiKey ? (
+              <div>
+                <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#81B29A",marginBottom:8}}>✓ API key saved ({aiKey.slice(0,12)}…)</div>
+                <Btn style={{fontSize:10,color:"#E07A5F",borderColor:"#E07A5F33"}} onClick={()=>{setAiKey("");localStorage.removeItem("paris_ai_key");setSetupAiKey("");}}>Remove key</Btn>
+              </div>
+            ) : (
+              <div>
+                <Input placeholder="sk-ant-…" value={setupAiKey} onChange={e=>setSetupAiKey(e.target.value)} />
+                <div style={{marginTop:8}}>
+                  <Btn c="gold" onClick={()=>{if(setupAiKey.trim()){setAiKey(setupAiKey.trim());localStorage.setItem("paris_ai_key",setupAiKey.trim());}}}>Save Key</Btn>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* SUPABASE */}
+          <div style={{padding:14,background:"#111",borderRadius:10,border:"1px solid #81B29A33"}}>
+            <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,color:"#81B29A",marginBottom:8}}>☁ Cloud Sync (Supabase)</div>
+            <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#666",marginBottom:10,lineHeight:1.5}}>Connect so all 10 travelers edit the same trip. Changes sync every 5 seconds.</p>
           {connected ? (
             <div>
               <div style={{background:"#81B29A11",border:"1px solid #81B29A33",borderRadius:8,padding:12,marginBottom:14,textAlign:"center"}}>
@@ -1002,6 +1061,7 @@ function App() {
               <Btn c="gold" style={{width:"100%",justifyContent:"center",padding:"10px 0"}} onClick={handleConnect}>Connect</Btn>
             </div>
           )}
+          </div>
         </Modal>
       )}
 
