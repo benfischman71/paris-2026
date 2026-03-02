@@ -652,7 +652,6 @@ function App() {
                 <Btn onClick={()=>setAddOpen(false)}>Cancel</Btn>
               </div>
               {looking && <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#F2CC8F",textAlign:"center",animation:"pulse 1.5s infinite"}}>✨ Researching "{addF.name}" — filling in hours, area, description, tips…</div>}
-              {!aiKey && <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#555",textAlign:"center"}}>💡 Add an Anthropic API key in <span onClick={()=>{setShowSetup(true);setSetupAiKey(aiKey);}} style={{color:"#F2CC8F",cursor:"pointer",textDecoration:"underline"}}>☁ Settings</span> to auto-fill details</div>}
             </div>
           )}
           {tab!=="restaurants" && (
@@ -666,15 +665,14 @@ function App() {
           {tab==="misc" && renderCards(misc,"misc")}
           {tab==="restaurants" && (<>
             <div style={{marginBottom:18,background:"#141414",padding:12,borderRadius:12,border:"1px solid #222"}}>
-              <div className="rest-add-bar">
-                <Input placeholder="Restaurant name…" value={restF.name} onChange={e=>setRestF(p=>({...p,name:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&addRest()} style={{flex:1}} />
-                <Select value={restF.meal} onChange={e=>setRestF(p=>({...p,meal:e.target.value}))} style={{width:100}}>
-                  <option value="lunch">Lunch</option><option value="dinner">Dinner</option><option value="brunch">Brunch</option>
+              <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                <Input placeholder="Restaurant name…" value={restF.name} onChange={e=>setRestF(p=>({...p,name:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&addRest()} style={{flex:"1 1 200px",minWidth:0}} />
+                <Select value={restF.meal} onChange={e=>setRestF(p=>({...p,meal:e.target.value}))} style={{width:100,flexShrink:0}}>
+                  <option value="dinner">Dinner</option><option value="lunch">Lunch</option><option value="brunch">Brunch</option>
                 </Select>
-                <Btn c="green" onClick={addRest} disabled={looking}>{looking?"🔍 Looking up…":"+ Add"}</Btn>
+                <Btn c="green" onClick={addRest} disabled={looking} style={{flexShrink:0}}>{looking?"🔍 Looking up…":"+ Add"}</Btn>
               </div>
               {looking && <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#F2CC8F",marginTop:8,textAlign:"center",animation:"pulse 1.5s infinite"}}>✨ Researching "{restF.name}" — filling in hours, area, description, tips…</div>}
-              {!aiKey && <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#555",marginTop:6,textAlign:"center"}}>💡 Add an Anthropic API key in <span onClick={()=>{setShowSetup(true);setSetupAiKey(aiKey);}} style={{color:"#F2CC8F",cursor:"pointer",textDecoration:"underline"}}>☁ Settings</span> to auto-fill restaurant details</div>}
             </div>
             {restaurants.length===0 ? (
               <div style={{textAlign:"center",padding:"50px 20px",border:"1px dashed #333",borderRadius:12,color:"#555"}}>
