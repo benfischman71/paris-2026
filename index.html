@@ -259,6 +259,7 @@ function App() {
   const [restF, setRestF] = useState({name:"",meal:"lunch"});
   const [editId, setEditId] = useState(null);
   const [editD, setEditD] = useState({});
+  const [searchQ, setSearchQ] = useState("");
   const [votes, setVotes] = useState({});
   const [priorities, setPriorities] = useState({});
   const [me, setMe] = useState(localStorage.getItem("paris_me")||"");
@@ -474,7 +475,7 @@ function App() {
   };
   const PriBadge = ({id, small}) => {
     const pri = getPri(id);
-    if (!pri) return <span onClick={e=>{e.stopPropagation();cyclePri(id);}} style={{fontFamily:"'DM Sans',sans-serif",fontSize:small?10:12,color:"#555",cursor:"pointer",padding:small?"3px 8px":"5px 12px",borderRadius:10,border:"1px solid #333",whiteSpace:"nowrap"}}>Set priority</span>;
+    if (!pri) return <span onClick={e=>{e.stopPropagation();cyclePri(id);}} style={{fontFamily:"'DM Sans',sans-serif",fontSize:small?10:12,color:"#555",cursor:"pointer",padding:small?"3px 8px":"5px 12px",borderRadius:10,border:"1px solid #333",whiteSpace:"nowrap"}}>Rank</span>;
     const p = PRI[pri];
     return <span onClick={e=>{e.stopPropagation();cyclePri(id);}} style={{fontFamily:"'DM Sans',sans-serif",fontSize:small?10:12,fontWeight:600,color:p.color,cursor:"pointer",padding:small?"3px 8px":"5px 12px",borderRadius:10,background:`${p.color}18`,border:`1px solid ${p.color}33`,whiteSpace:"nowrap"}} title="Click to cycle: Must Do → Want To → If Time → Clear">{p.icon} {p.label}</span>;
   };
@@ -667,7 +668,7 @@ function App() {
         <div className="page-wrap">
           <div className="tab-bar">
             {[{k:"museums",l:"Museums",n:museums.length,c:"#F2CC8F"},{k:"wwii",l:"WWII Sites",n:wwii.length,c:"#E07A5F"},{k:"misc",l:"Miscellaneous",n:misc.length,c:"#7B8CDE"},{k:"restaurants",l:"Restaurants",n:restaurants.length,c:"#81B29A"}].map(t=>(
-              <button key={t.k} onClick={()=>{setTab(t.k);setAddOpen(false);}} style={{padding:"9px 16px",cursor:"pointer",fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:500,letterSpacing:"0.5px",textTransform:"uppercase",borderBottom:tab===t.k?`2px solid ${t.c}`:"2px solid transparent",color:tab===t.k?t.c:"#666",background:"none",borderTop:"none",borderLeft:"none",borderRight:"none",whiteSpace:"nowrap"}}>
+              <button key={t.k} onClick={()=>{setTab(t.k);setAddOpen(false);setSearchQ("");}} style={{padding:"9px 16px",cursor:"pointer",fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:500,letterSpacing:"0.5px",textTransform:"uppercase",borderBottom:tab===t.k?`2px solid ${t.c}`:"2px solid transparent",color:tab===t.k?t.c:"#666",background:"none",borderTop:"none",borderLeft:"none",borderRight:"none",whiteSpace:"nowrap"}}>
                 {t.l} <span style={{marginLeft:4,background:tab===t.k?`${t.c}22`:"#222",padding:"1px 7px",borderRadius:10,fontSize:11}}>{t.n}</span>
               </button>
             ))}
@@ -704,9 +705,13 @@ function App() {
               {!addOpen && <Btn onClick={()=>setAddOpen(true)}>+ Add Custom</Btn>}
             </div>
           )}
-          {tab==="museums" && renderCards(museums,"museum")}
-          {tab==="wwii" && renderCards(wwii,"wwii")}
-          {tab==="misc" && renderCards(misc,"misc")}
+          {/* SEARCH BAR */}
+          <div style={{marginBottom:12}}>
+            <Input placeholder={`🔎 Search ${tab==="museums"?"museums":tab==="wwii"?"WWII sites":tab==="misc"?"experiences":"restaurants"}…`} value={searchQ} onChange={e=>setSearchQ(e.target.value)} style={{width:"100%",fontSize:13,padding:"10px 14px"}} />
+          </div>
+          {tab==="museums" && renderCards(museums.filter(i=>!searchQ||[i.name,i.area,i.desc,i.tip].join(" ").toLowerCase().includes(searchQ.toLowerCase())),"museum")}
+          {tab==="wwii" && renderCards(wwii.filter(i=>!searchQ||[i.name,i.area,i.desc,i.tip].join(" ").toLowerCase().includes(searchQ.toLowerCase())),"wwii")}
+          {tab==="misc" && renderCards(misc.filter(i=>!searchQ||[i.name,i.area,i.desc,i.tip].join(" ").toLowerCase().includes(searchQ.toLowerCase())),"misc")}
           {tab==="restaurants" && (<>
             <div style={{marginBottom:18,background:"#141414",padding:12,borderRadius:12,border:"1px solid #222"}}>
               <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
@@ -740,7 +745,7 @@ function App() {
               </div>
             ) : (<div><div style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#666",marginBottom:14}}>The truly best — click any card for details, tips, and contact info.</div>
               <div className="grid-cards">
-                {restaurants.map(r=>{
+                {restaurants.filter(r=>!searchQ||[r.name,r.area,r.desc,r.tip,r.meal].join(" ").toLowerCase().includes(searchQ.toLowerCase())).map(r=>{
                   const sc=isSch(r.id); const si=schInfo(r.id); const isEd=editId===r.id;
                   const mealColor = r.meal==="dinner"?"#E07A5F":r.meal==="brunch"?"#D4A574":"#81B29A";
                   return (
